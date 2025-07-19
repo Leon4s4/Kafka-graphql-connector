@@ -48,7 +48,10 @@ public class GraphQLSourceTask extends SourceTask {
             List<SourceRecord> records = new ArrayList<>();
             boolean hasNext = true;
             String after = nextCursor;
-            while (hasNext) {
+            int iterationCount = 0;
+            final int MAX_ITERATIONS = 1000; // Safeguard to prevent infinite loop
+            while (hasNext && iterationCount < MAX_ITERATIONS) {
+                iterationCount++;
                 GraphQLQueryResult result = executeQuery(after);
                 for (JsonNode node : result.nodes) {
                     Map<String, Object> sourcePartition = Collections.singletonMap("entity", config.entityName());
