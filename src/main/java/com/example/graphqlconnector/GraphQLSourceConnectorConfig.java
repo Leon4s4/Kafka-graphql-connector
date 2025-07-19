@@ -56,7 +56,7 @@ public class GraphQLSourceConnectorConfig extends AbstractConfig {
 
     public Map<String, String> headers() {
         Map<String, Object> raw = getMap(GRAPHQL_HEADERS);
-        Map<String, String> headers = new java.util.HashMap<>();
+        Map<String, String> headers = new HashMap<>();
         for (Map.Entry<String, Object> e : raw.entrySet()) {
             if (e.getValue() != null) {
                 headers.put(e.getKey(), e.getValue().toString());
