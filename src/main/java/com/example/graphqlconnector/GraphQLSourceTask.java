@@ -103,6 +103,9 @@ public class GraphQLSourceTask extends SourceTask {
         }
         Request request = builder.build();
         try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                throw new IOException("Unexpected HTTP response: " + response.code() + " - " + response.message());
+            }
             JsonNode node = mapper.readTree(response.body().string());
             JsonNode edges = node.path("data").path(config.entityName()).path("edges");
             List<JsonNode> nodes = new ArrayList<>();
