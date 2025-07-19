@@ -99,7 +99,7 @@ public class GraphQLSourceTask extends SourceTask {
     private GraphQLQueryResult executeQuery(String after) throws IOException {
         String query = buildQuery(after);
         MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-        Map<String, Object> variables = new HashMap<>();
+        Map<String, Object> variables = new HashMap<>(2);
         variables.put("first", config.resultSize());
         if (after != null) {
             variables.put("after", after);
