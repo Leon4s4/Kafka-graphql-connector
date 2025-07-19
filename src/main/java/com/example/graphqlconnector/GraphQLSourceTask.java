@@ -25,6 +25,7 @@ public class GraphQLSourceTask extends SourceTask {
     private OkHttpClient client;
     private ObjectMapper mapper = new ObjectMapper();
     private String nextCursor;
+    private Schema schema;
 
     @Override
     public String version() {
@@ -77,16 +78,53 @@ public class GraphQLSourceTask extends SourceTask {
     }
 
     private Struct buildStruct(JsonNode node) {
-        SchemaBuilder builder = SchemaBuilder.struct();
-        for (String field : config.selectedColumns()) {
-            builder.field(field, Schema.OPTIONAL_STRING_SCHEMA);
+        if (schema == null) {
+            SchemaBuilder builder = SchemaBuilder.struct();
+            for (String field : config.selectedColumns()) {
+                JsonNode value = node.get(field);
+                if (value != null && !value.isNull()) {
+                    builder.field(field, schemaForValue(value));
+                } else {
+                    builder.field(field, Schema.OPTIONAL_STRING_SCHEMA);
+                }
+            }
+            schema = builder.build();
         }
-        Schema schema = builder.build();
+
         Struct struct = new Struct(schema);
         for (String field : config.selectedColumns()) {
-            struct.put(field, node.has(field) ? node.get(field).asText() : null);
+            JsonNode value = node.get(field);
+            if (value == null || value.isNull()) {
+                struct.put(field, null);
+            } else {
+                Schema fieldSchema = schema.field(field).schema();
+                struct.put(field, convertValue(value, fieldSchema));
+            }
         }
         return struct;
+    }
+
+    private Schema schemaForValue(JsonNode value) {
+        if (value.isInt()) {
+            return Schema.OPTIONAL_INT32_SCHEMA;
+        } else if (value.isLong()) {
+            return Schema.OPTIONAL_INT64_SCHEMA;
+        } else if (value.isFloatingPointNumber()) {
+            return Schema.OPTIONAL_FLOAT64_SCHEMA;
+        } else if (value.isBoolean()) {
+            return Schema.OPTIONAL_BOOLEAN_SCHEMA;
+        }
+        return Schema.OPTIONAL_STRING_SCHEMA;
+    }
+
+    private Object convertValue(JsonNode value, Schema fieldSchema) {
+        return switch (fieldSchema.type()) {
+            case INT32 -> value.asInt();
+            case INT64 -> value.asLong();
+            case FLOAT32, FLOAT64 -> value.asDouble();
+            case BOOLEAN -> value.asBoolean();
+            default -> value.asText();
+        };
     }
 
     private String topic() {
