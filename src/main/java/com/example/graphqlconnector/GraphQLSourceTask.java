@@ -69,10 +69,11 @@ public class GraphQLSourceTask extends SourceTask {
                 after = result.endCursor;
                 nextCursor = after;
             }
-            Thread.sleep(config.pollingIntervalMs());
             return records;
         } catch (IOException e) {
             throw new RuntimeException(e);
+        } finally {
+            Thread.sleep(config.pollingIntervalMs());
         }
     }
 
