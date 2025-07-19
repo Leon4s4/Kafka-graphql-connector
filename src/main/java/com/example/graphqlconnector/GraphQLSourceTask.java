@@ -44,7 +44,6 @@ public class GraphQLSourceTask extends SourceTask {
     @Override
     public List<SourceRecord> poll() throws InterruptedException {
         try {
-            Thread.sleep(config.pollingIntervalMs());
             List<SourceRecord> records = new ArrayList<>();
             boolean hasNext = true;
             String after = nextCursor;
@@ -73,6 +72,8 @@ public class GraphQLSourceTask extends SourceTask {
             return records;
         } catch (IOException e) {
             throw new RuntimeException(e);
+        } finally {
+            Thread.sleep(config.pollingIntervalMs());
         }
     }
 
