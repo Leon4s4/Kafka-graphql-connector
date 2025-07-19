@@ -99,7 +99,12 @@ public class GraphQLSourceTask extends SourceTask {
     private GraphQLQueryResult executeQuery(String after) throws IOException {
         String query = buildQuery(after);
         MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-        String body = mapper.writeValueAsString(Map.of("query", query, "variables", Map.of("first", config.resultSize(), "after", after)));
+        Map<String, Object> variables = new HashMap<>(2);
+        variables.put("first", config.resultSize());
+        if (after != null) {
+            variables.put("after", after);
+        }
+        String body = mapper.writeValueAsString(Map.of("query", query, "variables", variables));
         Request.Builder builder = new Request.Builder().url(config.endpoint()).post(RequestBody.create(body, JSON));
         for (Map.Entry<String, String> h : config.headers().entrySet()) {
             builder.addHeader(h.getKey(), h.getValue());
@@ -129,9 +134,15 @@ public class GraphQLSourceTask extends SourceTask {
 
     private String buildQuery(String after) {
         StringBuilder sb = new StringBuilder();
-        sb.append("query GetEntity($first: Int!, $after: String) {");
+        sb.append("query GetEntity(");
+        sb.append(buildParameterDeclaration(after));
+        sb.append(") {");
         sb.append(config.entityName());
-        sb.append("(first: $first, after: $after) {");
+        sb.append("(first: $first");
+        if (after != null) {
+            sb.append(", after: $after");
+        }
+        sb.append(") {");
         sb.append("edges { node {");
         for (String field : config.selectedColumns()) {
             sb.append(field).append(' ');
