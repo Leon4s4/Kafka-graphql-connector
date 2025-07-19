@@ -55,7 +55,14 @@ public class GraphQLSourceConnectorConfig extends AbstractConfig {
     }
 
     public Map<String, String> headers() {
-        return (Map<String, String>) getMap(GRAPHQL_HEADERS);
+        Map<String, Object> raw = getMap(GRAPHQL_HEADERS);
+        Map<String, String> headers = new java.util.HashMap<>();
+        for (Map.Entry<String, Object> e : raw.entrySet()) {
+            if (e.getValue() != null) {
+                headers.put(e.getKey(), e.getValue().toString());
+            }
+        }
+        return headers;
     }
 
     public long pollingIntervalMs() {
