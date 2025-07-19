@@ -134,10 +134,8 @@ public class GraphQLSourceTask extends SourceTask {
 
     private String buildQuery(String after) {
         StringBuilder sb = new StringBuilder();
-        sb.append("query GetEntity($first: Int!");
-        if (after != null) {
-            sb.append(", $after: String");
-        }
+        sb.append("query GetEntity(");
+        sb.append(buildParameterDeclaration(after));
         sb.append(") {");
         sb.append(config.entityName());
         sb.append("(first: $first");
