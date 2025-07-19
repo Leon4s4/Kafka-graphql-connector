@@ -1,5 +1,6 @@
 package com.example.graphqlconnector;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import org.apache.kafka.common.config.AbstractConfig;
@@ -26,7 +27,7 @@ public class GraphQLSourceConnectorConfig extends AbstractConfig {
             .define(ENTITY_NAME, Type.STRING, Importance.HIGH, "GraphQL entity name")
             .define(RESULT_SIZE, Type.INT, 100, Importance.HIGH, "Result size per query")
             .define(SELECTED_COLUMNS, Type.LIST, Importance.HIGH, "Selected columns")
-            .define(GRAPHQL_HEADERS, Type.MAP, Map.of(), Importance.MEDIUM, "GraphQL headers")
+            .define(GRAPHQL_HEADERS, Type.STRING, "", Importance.MEDIUM, "GraphQL headers")
             .define(POLLING_INTERVAL_MS, Type.LONG, 30000L, Importance.MEDIUM, "Polling interval ms")
             .define(TOPIC_PREFIX, Type.STRING, "", Importance.MEDIUM, "Topic prefix")
             .define(OFFSET_FIELD, Type.STRING, "id", Importance.MEDIUM, "Offset field")
@@ -55,11 +56,15 @@ public class GraphQLSourceConnectorConfig extends AbstractConfig {
     }
 
     public Map<String, String> headers() {
-        Map<String, Object> raw = getMap(GRAPHQL_HEADERS);
+        String headerString = getString(GRAPHQL_HEADERS);
         Map<String, String> headers = new HashMap<>();
-        for (Map.Entry<String, Object> e : raw.entrySet()) {
-            if (e.getValue() != null) {
-                headers.put(e.getKey(), e.getValue().toString());
+        if (headerString != null && !headerString.trim().isEmpty()) {
+            String[] pairs = headerString.split(",");
+            for (String pair : pairs) {
+                String[] kv = pair.split(":");
+                if (kv.length == 2) {
+                    headers.put(kv[0].trim(), kv[1].trim());
+                }
             }
         }
         return headers;

@@ -1,0 +1,18 @@
+{
+  "name": "mock-graphql-api",
+  "version": "1.0.0",
+  "description": "Mock GraphQL API for testing the Kafka GraphQL connector",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "apollo-server-express": "^3.12.0",
+    "express": "^4.18.2",
+    "graphql": "^16.6.0"
+  },
+  "keywords": ["graphql", "mock", "kafka", "testing"],
+  "author": "Test",
+  "license": "MIT"
+}

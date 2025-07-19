@@ -3,11 +3,15 @@ package com.example.graphqlconnector;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import okhttp3.ConnectionPool;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -16,15 +20,24 @@ import okhttp3.Response;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.header.ConnectHeaders;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class GraphQLSourceTask extends SourceTask {
+
+    private static final Logger log = LoggerFactory.getLogger(GraphQLSourceTask.class);
+    private static final String CORRELATION_ID_HEADER = "X-Correlation-ID";
+    private static final int MAX_ITERATIONS = 1000;
 
     private GraphQLSourceConnectorConfig config;
     private OkHttpClient client;
     private ObjectMapper mapper = new ObjectMapper();
     private String nextCursor;
+    private long recordsProcessed = 0;
+    private Instant lastQueryTime;
 
     @Override
     public String version() {
@@ -33,130 +46,342 @@ public class GraphQLSourceTask extends SourceTask {
 
     @Override
     public void start(Map<String, String> props) {
-        this.config = new GraphQLSourceConnectorConfig(props);
-        this.client = new OkHttpClient();
-        Map<String, Object> offset = context.offsetStorageReader().offset(Collections.singletonMap("entity", config.entityName()));
+        log.info("Starting GraphQL Source Task");
+        try {
+            this.config = new GraphQLSourceConnectorConfig(props);
+            validateConfiguration();
+            initializeHttpClient();
+            loadOffset();
+            log.info("GraphQL Source Task started successfully for entity: {}", config.entityName());
+        } catch (Exception e) {
+            log.error("Failed to start GraphQL Source Task", e);
+            throw new RuntimeException("Task startup failed", e);
+        }
+    }
+
+    private void validateConfiguration() {
+        log.debug("Validating configuration");
+        
+        if (config.endpoint() == null || config.endpoint().trim().isEmpty()) {
+            throw new IllegalArgumentException("GraphQL endpoint URL is required");
+        }
+        
+        if (config.entityName() == null || config.entityName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Entity name is required");
+        }
+        
+        if (config.selectedColumns() == null || config.selectedColumns().isEmpty()) {
+            throw new IllegalArgumentException("Selected columns are required");
+        }
+        
+        log.debug("Configuration validation passed");
+    }
+
+    private void initializeHttpClient() {
+        ConnectionPool connectionPool = new ConnectionPool(10, 5, TimeUnit.MINUTES);
+        
+        this.client = new OkHttpClient.Builder()
+                .connectionPool(connectionPool)
+                .connectTimeout(Duration.ofMillis(config.queryTimeoutMs()))
+                .readTimeout(Duration.ofMillis(config.queryTimeoutMs()))
+                .writeTimeout(Duration.ofMillis(config.queryTimeoutMs()))
+                .retryOnConnectionFailure(true)
+                .build();
+                
+        log.debug("HTTP client initialized with timeout: {}ms", config.queryTimeoutMs());
+    }
+
+    private void loadOffset() {
+        Map<String, Object> partition = Collections.singletonMap("entity", config.entityName());
+        Map<String, Object> offset = context.offsetStorageReader().offset(partition);
+        
         if (offset != null) {
-            this.nextCursor = (String) offset.getOrDefault("last_cursor", null);
+            this.nextCursor = (String) offset.get("last_cursor");
+            log.info("Loaded offset - cursor: {}, last_id: {}", 
+                    nextCursor, offset.get("last_id"));
+        } else {
+            log.info("No existing offset found, starting from beginning");
         }
     }
 
     @Override
     public List<SourceRecord> poll() throws InterruptedException {
+        String correlationId = generateCorrelationId();
+        log.debug("Starting poll cycle with correlation ID: {}", correlationId);
+        
         try {
             List<SourceRecord> records = new ArrayList<>();
             boolean hasNext = true;
             String after = nextCursor;
             int iterationCount = 0;
-            final int MAX_ITERATIONS = 1000; // Safeguard to prevent infinite loop
+            
             while (hasNext && iterationCount < MAX_ITERATIONS) {
                 iterationCount++;
-                GraphQLQueryResult result = executeQuery(after);
+                log.debug("Poll iteration {} with cursor: {}", iterationCount, after);
+                
+                GraphQLQueryResult result = executeQueryWithRetry(after, correlationId);
+                
                 for (JsonNode node : result.nodes) {
-                    Map<String, Object> sourcePartition = Collections.singletonMap("entity", config.entityName());
-                    Map<String, Object> sourceOffset = new HashMap<>();
-                    sourceOffset.put("last_cursor", result.endCursor);
-                    if (node.has(config.offsetField())) {
-                        sourceOffset.put("last_id", node.get(config.offsetField()).asText());
-                    }
-                    String topic = topic();
-                    Struct struct = buildStruct(node);
-                    Schema schema = struct.schema();
-                    SourceRecord record = new SourceRecord(sourcePartition, sourceOffset, topic, null, null, null, schema, struct);
+                    SourceRecord record = createSourceRecord(node, result.endCursor, correlationId);
                     records.add(record);
+                    recordsProcessed++;
                 }
+                
                 hasNext = result.hasNextPage;
                 after = result.endCursor;
                 nextCursor = after;
+                
+                log.debug("Processed {} nodes in iteration {}", result.nodes.size(), iterationCount);
             }
+            
+            if (iterationCount >= MAX_ITERATIONS) {
+                log.warn("Reached maximum iterations ({}), stopping poll cycle", MAX_ITERATIONS);
+            }
+            
+            log.info("Poll cycle completed. Records: {}, Total processed: {}", 
+                    records.size(), recordsProcessed);
+            
             return records;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            
+        } catch (Exception e) {
+            log.error("Error during poll cycle with correlation ID: {}", correlationId, e);
+            throw new RuntimeException("Poll failed", e);
         } finally {
             Thread.sleep(config.pollingIntervalMs());
         }
     }
 
-    private Struct buildStruct(JsonNode node) {
-        SchemaBuilder builder = SchemaBuilder.struct();
-        for (String field : config.selectedColumns()) {
-            builder.field(field, Schema.OPTIONAL_STRING_SCHEMA);
+    private GraphQLQueryResult executeQueryWithRetry(String after, String correlationId) throws IOException {
+        int attempt = 0;
+        long backoffMs = config.retryBackoffMs();
+        
+        while (attempt < config.maxRetries()) {
+            try {
+                Instant queryStart = Instant.now();
+                GraphQLQueryResult result = executeQuery(after, correlationId);
+                lastQueryTime = Instant.now();
+                
+                long queryDuration = Duration.between(queryStart, lastQueryTime).toMillis();
+                log.debug("Query executed successfully in {}ms (attempt {})", queryDuration, attempt + 1);
+                
+                return result;
+                
+            } catch (IOException e) {
+                attempt++;
+                log.warn("Query attempt {} failed for correlation ID: {} - {}", 
+                        attempt, correlationId, e.getMessage());
+                
+                if (attempt >= config.maxRetries()) {
+                    log.error("All {} retry attempts exhausted for correlation ID: {}", 
+                            config.maxRetries(), correlationId, e);
+                    throw e;
+                }
+                
+                try {
+                    log.debug("Backing off for {}ms before retry", backoffMs);
+                    Thread.sleep(backoffMs);
+                    backoffMs *= 2; // Exponential backoff
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Interrupted during retry backoff", ie);
+                }
+            }
         }
-        Schema schema = builder.build();
-        Struct struct = new Struct(schema);
-        for (String field : config.selectedColumns()) {
-            struct.put(field, node.has(field) ? node.get(field).asText() : null);
-        }
-        return struct;
+        
+        throw new IOException("Should not reach here");
     }
 
-    private String topic() {
-        if (config.topicPrefix().isEmpty()) {
-            return config.entityName();
-        }
-        return config.topicPrefix() + config.entityName();
-    }
-
-    private GraphQLQueryResult executeQuery(String after) throws IOException {
+    private GraphQLQueryResult executeQuery(String after, String correlationId) throws IOException {
         String query = buildQuery(after);
-        MediaType JSON = MediaType.parse("application/json; charset=utf-8");
-        Map<String, Object> variables = new HashMap<>(2);
+        Map<String, Object> variables = new HashMap<>();
         variables.put("first", config.resultSize());
         if (after != null) {
             variables.put("after", after);
         }
-        String body = mapper.writeValueAsString(Map.of("query", query, "variables", variables));
-        Request.Builder builder = new Request.Builder().url(config.endpoint()).post(RequestBody.create(body, JSON));
-        for (Map.Entry<String, String> h : config.headers().entrySet()) {
-            builder.addHeader(h.getKey(), h.getValue());
+
+        String requestBody = mapper.writeValueAsString(Map.of(
+                "query", query,
+                "variables", variables
+        ));
+
+        Request.Builder requestBuilder = new Request.Builder()
+                .url(config.endpoint())
+                .post(RequestBody.create(requestBody, MediaType.parse("application/json; charset=utf-8")))
+                .addHeader(CORRELATION_ID_HEADER, correlationId);
+
+        for (Map.Entry<String, String> header : config.headers().entrySet()) {
+            requestBuilder.addHeader(header.getKey(), header.getValue());
         }
-        Request request = builder.build();
+
+        Request request = requestBuilder.build();
+        log.debug("Executing GraphQL query: {}", query);
+
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
-                throw new IOException("Unexpected HTTP response: " + response.code() + " - " + response.message());
+                String errorMsg = String.format("HTTP %d: %s", response.code(), response.message());
+                log.error("GraphQL request failed: {}", errorMsg);
+                throw new IOException(errorMsg);
             }
-            JsonNode node = mapper.readTree(response.body().string());
-            JsonNode edges = node.path("data").path(config.entityName()).path("edges");
-            List<JsonNode> nodes = new ArrayList<>();
-            String endCursor = null;
-            boolean hasNext = false;
-            for (JsonNode edge : edges) {
-                nodes.add(edge.path("node"));
-                endCursor = edge.path("cursor").asText();
+
+            String responseBody = response.body().string();
+            JsonNode responseNode = mapper.readTree(responseBody);
+            
+            if (responseNode.has("errors")) {
+                JsonNode errors = responseNode.get("errors");
+                log.error("GraphQL errors in response: {}", errors);
+                throw new IOException("GraphQL errors: " + errors.toString());
             }
-            JsonNode pageInfo = node.path("data").path(config.entityName()).path("pageInfo");
-            if (!pageInfo.isMissingNode()) {
-                hasNext = pageInfo.path("hasNextPage").asBoolean();
-                endCursor = pageInfo.path("endCursor").asText();
-            }
-            return new GraphQLQueryResult(nodes, endCursor, hasNext);
+
+            return parseGraphQLResponse(responseNode);
         }
     }
 
+    private GraphQLQueryResult parseGraphQLResponse(JsonNode responseNode) {
+        JsonNode dataNode = responseNode.path("data");
+        JsonNode entityNode = dataNode.path(config.entityName());
+        JsonNode edges = entityNode.path("edges");
+        
+        List<JsonNode> nodes = new ArrayList<>();
+        String endCursor = null;
+        
+        for (JsonNode edge : edges) {
+            nodes.add(edge.path("node"));
+            endCursor = edge.path("cursor").asText();
+        }
+        
+        JsonNode pageInfo = entityNode.path("pageInfo");
+        boolean hasNext = pageInfo.path("hasNextPage").asBoolean(false);
+        if (!pageInfo.path("endCursor").isMissingNode()) {
+            endCursor = pageInfo.path("endCursor").asText();
+        }
+        
+        return new GraphQLQueryResult(nodes, endCursor, hasNext);
+    }
+
+    private SourceRecord createSourceRecord(JsonNode node, String endCursor, String correlationId) {
+        Map<String, Object> sourcePartition = Collections.singletonMap("entity", config.entityName());
+        Map<String, Object> sourceOffset = new HashMap<>();
+        sourceOffset.put("last_cursor", endCursor);
+        sourceOffset.put("timestamp", Instant.now().toString());
+        
+        String recordKey = null;
+        if (node.has(config.offsetField())) {
+            recordKey = node.get(config.offsetField()).asText();
+            sourceOffset.put("last_id", recordKey);
+        }
+        
+        String topic = buildTopicName();
+        Struct value = buildStruct(node);
+        Schema valueSchema = value.schema();
+        
+        ConnectHeaders headers = new ConnectHeaders();
+        headers.addString("entity", config.entityName());
+        headers.addString("timestamp", Instant.now().toString());
+        headers.addString("correlation_id", correlationId);
+        
+        return new SourceRecord(
+                sourcePartition,
+                sourceOffset,
+                topic,
+                null,
+                Schema.OPTIONAL_STRING_SCHEMA,
+                recordKey,
+                valueSchema,
+                value,
+                null,
+                headers
+        );
+    }
+
+    private Struct buildStruct(JsonNode node) {
+        SchemaBuilder schemaBuilder = SchemaBuilder.struct()
+                .name(config.entityName() + "_record");
+        
+        Map<String, Object> fieldValues = new HashMap<>();
+        
+        for (String fieldName : config.selectedColumns()) {
+            schemaBuilder.field(fieldName, Schema.OPTIONAL_STRING_SCHEMA);
+            
+            String fieldValue = null;
+            if (node.has(fieldName)) {
+                JsonNode fieldNode = node.get(fieldName);
+                if (!fieldNode.isNull()) {
+                    fieldValue = fieldNode.asText();
+                }
+            }
+            fieldValues.put(fieldName, fieldValue);
+        }
+        
+        Schema schema = schemaBuilder.build();
+        Struct struct = new Struct(schema);
+        
+        for (Map.Entry<String, Object> entry : fieldValues.entrySet()) {
+            struct.put(entry.getKey(), entry.getValue());
+        }
+        
+        return struct;
+    }
+
+    private String buildTopicName() {
+        String prefix = config.topicPrefix();
+        if (prefix != null && !prefix.trim().isEmpty()) {
+            return prefix + config.entityName();
+        }
+        return config.entityName();
+    }
+
     private String buildQuery(String after) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("query GetEntity(");
-        sb.append(buildParameterDeclaration(after));
-        sb.append(") {");
-        sb.append(config.entityName());
-        sb.append("(first: $first");
+        StringBuilder queryBuilder = new StringBuilder();
+        queryBuilder.append("query GetEntity(");
+        queryBuilder.append(buildParameterDeclaration(after));
+        queryBuilder.append(") {");
+        queryBuilder.append(config.entityName());
+        queryBuilder.append("(first: $first");
+        
         if (after != null) {
-            sb.append(", after: $after");
+            queryBuilder.append(", after: $after");
         }
-        sb.append(") {");
-        sb.append("edges { node {");
+        
+        queryBuilder.append(") {");
+        queryBuilder.append("edges { node {");
+        
         for (String field : config.selectedColumns()) {
-            sb.append(field).append(' ');
+            queryBuilder.append(field).append(" ");
         }
-        sb.append("} cursor }");
-        sb.append("pageInfo { hasNextPage endCursor }");
-        sb.append("} }");
-        return sb.toString();
+        
+        queryBuilder.append("} cursor }");
+        queryBuilder.append("pageInfo { hasNextPage endCursor }");
+        queryBuilder.append("} }");
+        
+        return queryBuilder.toString();
+    }
+
+    private String buildParameterDeclaration(String after) {
+        if (after != null) {
+            return "$first: Int!, $after: String";
+        }
+        return "$first: Int!";
+    }
+
+    private String generateCorrelationId() {
+        return config.entityName() + "-" + System.currentTimeMillis() + "-" + 
+               Thread.currentThread().getId();
     }
 
     @Override
     public void stop() {
-        // nothing
+        log.info("Stopping GraphQL Source Task. Total records processed: {}", recordsProcessed);
+        
+        if (client != null) {
+            client.connectionPool().evictAll();
+            try {
+                client.dispatcher().executorService().shutdown();
+            } catch (Exception e) {
+                log.warn("Error shutting down HTTP client", e);
+            }
+        }
+        
+        log.info("GraphQL Source Task stopped");
     }
 
     private record GraphQLQueryResult(List<JsonNode> nodes, String endCursor, boolean hasNextPage) {}

@@ -24,3 +24,9 @@ hs_err_pid*
 replay_pid*
 
 .idea/
+
+# Docker and logs
+logs/
+test-graphql-api/node_modules/
+.env
+docker-compose.override.yml

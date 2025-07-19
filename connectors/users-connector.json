@@ -1,0 +1,20 @@
+{
+  "name": "graphql-users-source",
+  "config": {
+    "connector.class": "com.example.graphqlconnector.GraphQLSourceConnector",
+    "tasks.max": "1",
+    "graphql.endpoint.url": "http://mock-graphql-api:4000/graphql",
+    "entity.name": "users",
+    "result.size": "10",
+    "selected.columns": "id,name,email,createdAt,status",
+    "polling.interval.ms": "10000",
+    "topic.prefix": "graphql_",
+    "offset.field": "id",
+    "query.timeout.ms": "30000",
+    "max.retries": "3",
+    "retry.backoff.ms": "1000",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "true"
+  }
+}
