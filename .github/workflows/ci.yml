@@ -220,7 +220,7 @@ jobs:
       run: mvn clean test jacoco:report -B
       
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         file: target/site/jacoco/jacoco.xml
         flags: unittests
