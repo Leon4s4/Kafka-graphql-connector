@@ -128,7 +128,7 @@ jobs:
       run: mvn clean test jacoco:report -B
       
     - name: Comment coverage on PR
-      uses: madrapps/jacoco-report@v1.6.1
+      uses: madrapps/jacoco-report@v1.7.2
       with:
         paths: target/site/jacoco/jacoco.xml
         token: ${{ secrets.GITHUB_TOKEN }}
