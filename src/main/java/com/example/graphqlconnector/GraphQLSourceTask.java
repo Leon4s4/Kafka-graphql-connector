@@ -46,6 +46,7 @@ public class GraphQLSourceTask extends SourceTask {
     private int consecutiveFailures = 0;
     private Instant lastFailureTime;
     private boolean isHealthy = true;
+    private volatile boolean isShuttingDown = false;
 
     @Override
     public String version() {
@@ -154,7 +155,7 @@ public class GraphQLSourceTask extends SourceTask {
         String after = nextCursor;
         int iterationCount = 0;
         
-        while (hasNext && iterationCount < MAX_ITERATIONS) {
+        while (hasNext && iterationCount < MAX_ITERATIONS && !isShuttingDown) {
             iterationCount++;
             log.debug("Poll iteration {} with cursor: {}", iterationCount, after);
             
@@ -532,17 +533,78 @@ public class GraphQLSourceTask extends SourceTask {
     @Override
     public void stop() {
         log.info("Stopping GraphQL Source Task. Total records processed: {}", recordsProcessed);
+        isShuttingDown = true;
         
+        cleanupResources();
+        
+        log.info("GraphQL Source Task stopped successfully");
+    }
+    
+    private void cleanupResources() {
         if (client != null) {
-            client.connectionPool().evictAll();
             try {
+                log.debug("Starting HTTP client cleanup");
+                
+                // 1. Cancel all pending calls
+                client.dispatcher().cancelAll();
+                log.debug("Cancelled all pending HTTP calls");
+                
+                // 2. Shutdown dispatcher executor with timeout
                 client.dispatcher().executorService().shutdown();
+                boolean dispatcherShutdown = client.dispatcher().executorService()
+                    .awaitTermination(10, TimeUnit.SECONDS);
+                
+                if (!dispatcherShutdown) {
+                    log.warn("Dispatcher executor did not shutdown gracefully, forcing shutdown");
+                    client.dispatcher().executorService().shutdownNow();
+                    // Wait again for forced shutdown
+                    boolean forcedShutdown = client.dispatcher().executorService()
+                        .awaitTermination(5, TimeUnit.SECONDS);
+                    if (!forcedShutdown) {
+                        log.error("Failed to force shutdown dispatcher executor");
+                    }
+                } else {
+                    log.debug("Dispatcher executor shutdown successfully");
+                }
+                
+                // 3. Close connection pool
+                client.connectionPool().evictAll();
+                log.debug("Evicted all connections from pool");
+                
+                // 4. Close cache if present
+                if (client.cache() != null) {
+                    try {
+                        client.cache().close();
+                        log.debug("HTTP cache closed successfully");
+                    } catch (IOException e) {
+                        log.warn("Error closing HTTP cache", e);
+                    }
+                }
+                
+                log.info("HTTP client cleanup completed successfully");
+                
+            } catch (InterruptedException e) {
+                log.warn("HTTP client cleanup interrupted", e);
+                Thread.currentThread().interrupt();
+                // Force immediate shutdown on interruption
+                client.dispatcher().executorService().shutdownNow();
             } catch (Exception e) {
-                log.warn("Error shutting down HTTP client", e);
+                log.error("Unexpected error during HTTP client cleanup", e);
+            } finally {
+                // Ensure client reference is cleared
+                client = null;
+                log.debug("HTTP client reference cleared");
             }
+        } else {
+            log.debug("HTTP client was null, no cleanup needed");
         }
         
-        log.info("GraphQL Source Task stopped");
+        // Clear other resources
+        sourcePartition = null;
+        nextCursor = null;
+        lastCommittedCursor = null;
+        
+        log.debug("All resources cleaned up");
     }
 
     private record GraphQLQueryResult(List<JsonNode> nodes, String endCursor, boolean hasNextPage) {}
