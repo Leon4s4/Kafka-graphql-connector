@@ -246,11 +246,159 @@ jobs:
       run: |
         docker-compose down -v
 
+  # Performance benchmarking
+  performance-benchmark:
+    runs-on: ubuntu-latest
+    name: Performance Benchmarks
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+        
+    - name: Build project
+      run: mvn clean compile test-compile -B
+      
+    - name: Start test environment
+      run: |
+        docker-compose -f docker-compose.test.yml up -d --build
+        
+    - name: Wait for services to be ready
+      run: |
+        # Wait for GraphQL API
+        for i in {1..30}; do
+          if curl -s -f http://localhost:4000/health > /dev/null; then
+            echo "Mock GraphQL API is ready"
+            break
+          fi
+          echo "Waiting for Mock GraphQL API... ($i/30)"
+          sleep 2
+        done
+        
+        # Wait for Kafka
+        sleep 10
+        echo "Services are ready for performance testing"
+        
+    - name: Run performance benchmarks
+      run: |
+        echo "🚀 Running comprehensive performance benchmarks..."
+        
+        # Run with increased memory for performance tests
+        mvn test -Pperformance -Dtest="GraphQLConnectorPerformanceTest" \
+          -DargLine="-Xmx4g -XX:+UseG1GC" \
+          -B
+        
+    - name: Analyze performance results
+      run: |
+        if [ -f "target/performance-results.json" ]; then
+          echo "📊 Performance Benchmark Results:"
+          echo "=================================="
+          
+          # Extract key metrics (with fallbacks if jq not available)
+          if command -v jq &> /dev/null; then
+            timestamp=$(cat target/performance-results.json | jq -r '.timestamp')
+            duration=$(cat target/performance-results.json | jq -r '.duration')
+            throughput=$(cat target/performance-results.json | jq -r '.results.throughput.throughputPerSecond // "N/A"')
+            memory_increase=$(cat target/performance-results.json | jq -r '.results.memoryUsage.memoryIncreaseMB // "N/A"')
+            avg_memory=$(cat target/performance-results.json | jq -r '.results.memoryUsage.avgMemoryUsageMB // "N/A"')
+            error_rate=$(cat target/performance-results.json | jq -r '.results.errorRate.errorRate // "N/A"')
+            concurrent_throughput=$(cat target/performance-results.json | jq -r '.results.concurrentLoad.concurrentThroughputPerSecond // "N/A"')
+            
+            echo "⏱️  Test Duration: $duration"
+            echo "📈 Throughput: $throughput records/second"
+            echo "🧠 Memory Increase: $memory_increase MB"
+            echo "💾 Average Memory: $avg_memory MB"
+            echo "⚠️  Error Rate: $error_rate%"
+            echo "🔀 Concurrent Throughput: $concurrent_throughput records/second"
+            
+            # Create performance summary
+            cat > performance-summary.json << EOF
+            {
+              "timestamp": "$timestamp",
+              "duration": "$duration",
+              "metrics": {
+                "throughput_records_per_sec": $throughput,
+                "memory_increase_mb": $memory_increase,
+                "average_memory_mb": $avg_memory,
+                "error_rate_percent": $error_rate,
+                "concurrent_throughput_records_per_sec": $concurrent_throughput
+              },
+              "status": "completed"
+            }
+        EOF
+          else
+            echo "📄 Raw results available in target/performance-results.json"
+            echo "{\"status\": \"completed\", \"message\": \"jq not available for parsing\"}" > performance-summary.json
+          fi
+        else
+          echo "❌ No performance results file found"
+          echo "{\"status\": \"failed\", \"message\": \"No results file generated\"}" > performance-summary.json
+        fi
+        
+    - name: Upload performance results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: performance-benchmark-results
+        path: |
+          target/performance-results.json
+          performance-summary.json
+        retention-days: 90
+        
+    - name: Performance regression check
+      run: |
+        if [ -f "target/performance-results.json" ] && command -v jq &> /dev/null; then
+          throughput=$(cat target/performance-results.json | jq -r '.results.throughput.throughputPerSecond // 0')
+          memory_increase=$(cat target/performance-results.json | jq -r '.results.memoryUsage.memoryIncreaseMB // 0')
+          error_rate=$(cat target/performance-results.json | jq -r '.results.errorRate.errorRate // 0')
+          
+          # Performance thresholds (adjust based on your requirements)
+          min_throughput=5.0
+          max_memory_increase=100.0
+          max_error_rate=10.0
+          
+          echo "🔍 Checking performance against thresholds:"
+          echo "   Throughput: $throughput >= $min_throughput"
+          echo "   Memory: $memory_increase <= $max_memory_increase MB"
+          echo "   Error Rate: $error_rate <= $max_error_rate%"
+          
+          if (( $(echo "$throughput < $min_throughput" | bc -l) )); then
+            echo "❌ Performance regression: Throughput ($throughput) below threshold ($min_throughput)"
+            exit 1
+          fi
+          
+          if (( $(echo "$memory_increase > $max_memory_increase" | bc -l) )); then
+            echo "❌ Performance regression: Memory increase ($memory_increase MB) above threshold ($max_memory_increase MB)"
+            exit 1
+          fi
+          
+          if (( $(echo "$error_rate > $max_error_rate" | bc -l) )); then
+            echo "❌ Performance regression: Error rate ($error_rate%) above threshold ($max_error_rate%)"
+            exit 1
+          fi
+          
+          echo "✅ All performance metrics within acceptable thresholds"
+        else
+          echo "⚠️  Skipping regression check (missing results or jq)"
+        fi
+        
+    - name: Cleanup performance test environment
+      if: always()
+      run: |
+        docker-compose -f docker-compose.test.yml down -v
+        docker system prune -f
+
   # Report nightly build results
   report:
     runs-on: ubuntu-latest
     name: Nightly Report
-    needs: [extended-integration, load-test]
+    needs: [extended-integration, load-test, performance-benchmark]
     if: always()
     
     steps:
@@ -270,6 +418,12 @@ jobs:
           echo "✅ Load testing completed successfully" >> report.md
         else
           echo "❌ Load testing failed" >> report.md
+        fi
+        
+        if [ "${{ needs.performance-benchmark.result }}" = "success" ]; then
+          echo "✅ Performance benchmarks completed successfully" >> report.md
+        else
+          echo "❌ Performance benchmarks failed" >> report.md
         fi
         
         echo "" >> report.md

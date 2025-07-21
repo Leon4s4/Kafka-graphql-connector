@@ -407,6 +407,11 @@ mvn test
 
 # All tests with coverage
 mvn clean test jacoco:report
+
+# Performance benchmarks
+./run-performance-tests.sh
+# or
+mvn test -Pperformance -Dtest=GraphQLConnectorPerformanceTest
 ```
 
 ### CI/CD Pipeline
@@ -429,6 +434,116 @@ mvn jacoco:report
 ```
 
 Coverage reports are automatically generated and tracked in CI/CD.
+
+## Performance Benchmarking
+
+The project includes a comprehensive performance testing framework to measure throughput, memory usage, and reliability under load.
+
+### Running Performance Tests
+
+```bash
+# Run all performance benchmarks
+./run-performance-tests.sh
+
+# Or run with Maven directly
+mvn test -Pperformance -Dtest=GraphQLConnectorPerformanceTest
+```
+
+### Benchmark Test Suite
+
+The performance framework includes 5 comprehensive benchmark tests:
+
+1. **Throughput Benchmark** - Measures records/second processing rate
+   - Target: >= 5 records/second
+   - Duration: 60 seconds
+   - Metrics: throughput, response times, latency distribution
+
+2. **Memory Usage Benchmark** - Monitors memory consumption patterns
+   - Target: < 100MB memory increase
+   - Duration: 30 seconds
+   - Metrics: heap usage, memory growth, GC pressure
+
+3. **Concurrent Load Benchmark** - Tests multiple connector tasks simultaneously
+   - Configuration: 3 parallel tasks
+   - Duration: 30 seconds per task
+   - Metrics: concurrent throughput, task success rate
+
+4. **Error Rate Under Load** - Validates error handling under stress
+   - Configuration: Aggressive polling (10ms intervals)
+   - Target: < 50% error rate under stress
+   - Metrics: error rate, recovery time, circuit breaker behavior
+
+5. **JMX Metrics Performance** - Benchmarks JMX method call performance
+   - Target: < 10ms per JMX method call
+   - Iterations: 1000 calls per method
+   - Metrics: method response times, monitoring overhead
+
+### Performance Results
+
+Results are automatically saved to `target/performance-results.json` with detailed metrics:
+
+```json
+{
+  "timestamp": "2025-01-21T12:00:00Z",
+  "duration": "PT2M30S",
+  "results": {
+    "throughput": {
+      "throughputPerSecond": 12.5,
+      "avgResponseTimeMs": 850.2,
+      "maxResponseTimeMs": 2100
+    },
+    "memoryUsage": {
+      "memoryIncreaseMB": 45.2,
+      "avgMemoryUsageMB": 312.8,
+      "maxMemoryUsageMB": 425.1
+    },
+    "concurrentLoad": {
+      "tasksSuccessful": 3,
+      "concurrentThroughputPerSecond": 25.3
+    },
+    "errorRate": {
+      "errorRate": 8.5,
+      "avgPollTimeMs": 125.3
+    },
+    "jmxPerformance": {
+      "getConnectorStatus": 2.1,
+      "getTotalRecordsProcessed": 1.8,
+      "getHealthSummary": 3.2
+    }
+  }
+}
+```
+
+### CI/CD Integration
+
+Performance benchmarks run automatically in:
+
+- **Nightly Builds**: Full performance validation with regression detection
+- **Manual Triggers**: On-demand performance testing via GitHub Actions
+
+Performance thresholds are enforced to detect regressions:
+- Minimum throughput: 5 records/second
+- Maximum memory increase: 100MB
+- Maximum error rate: 10%
+
+### Performance Tuning
+
+For optimal performance in your environment:
+
+```json
+{
+  "result.size": "100-1000",
+  "polling.interval.ms": "1000-10000", 
+  "query.timeout.ms": "30000-60000",
+  "max.retries": "3-5"
+}
+```
+
+Monitoring recommendations:
+- Track JMX metrics for real-time performance
+- Monitor memory usage trends
+- Set up alerting on error rate spikes
+- Use circuit breaker status for health checks
 
 ## Contributing
 
