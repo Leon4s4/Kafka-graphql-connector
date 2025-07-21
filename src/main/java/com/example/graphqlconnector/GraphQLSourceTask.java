@@ -11,6 +11,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+import java.lang.management.ManagementFactory;
 import okhttp3.ConnectionPool;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -26,7 +31,7 @@ import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class GraphQLSourceTask extends SourceTask {
+public class GraphQLSourceTask extends SourceTask implements GraphQLSourceTaskMBean {
 
     private static final Logger log = LoggerFactory.getLogger(GraphQLSourceTask.class);
     private static final String CORRELATION_ID_HEADER = "X-Correlation-ID";
@@ -47,6 +52,21 @@ public class GraphQLSourceTask extends SourceTask {
     private Instant lastFailureTime;
     private boolean isHealthy = true;
     private volatile boolean isShuttingDown = false;
+    
+    // JMX Metrics
+    private final AtomicLong totalPollCycles = new AtomicLong(0);
+    private final AtomicLong successfulPollCycles = new AtomicLong(0);
+    private final AtomicLong failedPollCycles = new AtomicLong(0);
+    private final AtomicLong totalGraphQLQueries = new AtomicLong(0);
+    private final AtomicLong totalGraphQLErrors = new AtomicLong(0);
+    private final AtomicLong totalRetryAttempts = new AtomicLong(0);
+    private final AtomicLong totalBytesReceived = new AtomicLong(0);
+    private final AtomicLong queryTimeAccumulator = new AtomicLong(0);
+    private final AtomicReference<String> lastErrorMessage = new AtomicReference<>();
+    private final AtomicReference<Instant> lastErrorTime = new AtomicReference<>();
+    private volatile Instant metricsStartTime = Instant.now();
+    private volatile ObjectName mbeanName;
+    private volatile MBeanServer mbeanServer;
 
     @Override
     public String version() {
@@ -61,6 +81,7 @@ public class GraphQLSourceTask extends SourceTask {
             validateConfiguration();
             initializeHttpClient();
             loadOffset();
+            registerMBean();
             log.info("GraphQL Source Task started successfully for entity: {}", config.entityName());
         } catch (Exception e) {
             log.error("Failed to start GraphQL Source Task", e);
@@ -116,10 +137,29 @@ public class GraphQLSourceTask extends SourceTask {
         }
     }
 
+    private void registerMBean() {
+        try {
+            this.mbeanServer = ManagementFactory.getPlatformMBeanServer();
+            this.mbeanName = new ObjectName(
+                "com.example.graphqlconnector:type=GraphQLSourceTask,entity=" + config.entityName());
+            
+            if (!mbeanServer.isRegistered(mbeanName)) {
+                mbeanServer.registerMBean(this, mbeanName);
+                log.info("Registered JMX MBean: {}", mbeanName);
+            } else {
+                log.warn("MBean already registered: {}", mbeanName);
+            }
+        } catch (Exception e) {
+            log.error("Failed to register JMX MBean", e);
+        }
+    }
+
     @Override
     public List<SourceRecord> poll() throws InterruptedException {
         String correlationId = generateCorrelationId();
         log.debug("Starting poll cycle with correlation ID: {}", correlationId);
+        
+        totalPollCycles.incrementAndGet();
         
         // Circuit breaker check
         if (!isHealthy && shouldStayInCircuitBreaker()) {
@@ -136,6 +176,7 @@ public class GraphQLSourceTask extends SourceTask {
                 resetFailureTracking();
             }
             
+            successfulPollCycles.incrementAndGet();
             return records;
             
         } catch (InterruptedException e) {
@@ -192,6 +233,9 @@ public class GraphQLSourceTask extends SourceTask {
     
     private List<SourceRecord> handlePollFailure(Exception e, String correlationId) throws InterruptedException {
         incrementFailureCount();
+        failedPollCycles.incrementAndGet();
+        lastErrorMessage.set(e.getMessage());
+        lastErrorTime.set(Instant.now());
         
         // Log appropriate level based on failure type and count
         if (isRetriableError(e)) {
@@ -238,10 +282,16 @@ public class GraphQLSourceTask extends SourceTask {
                 long queryDuration = Duration.between(queryStart, lastQueryTime).toMillis();
                 log.debug("Query executed successfully in {}ms (attempt {})", queryDuration, attempt + 1);
                 
+                // Update metrics
+                totalGraphQLQueries.incrementAndGet();
+                queryTimeAccumulator.addAndGet(queryDuration);
+                
                 return result;
                 
             } catch (IOException e) {
                 attempt++;
+                totalRetryAttempts.incrementAndGet();
+                totalGraphQLErrors.incrementAndGet();
                 log.warn("Query attempt {} failed for correlation ID: {} - {}", 
                         attempt, correlationId, e.getMessage());
                 
@@ -298,6 +348,7 @@ public class GraphQLSourceTask extends SourceTask {
             }
 
             String responseBody = response.body().string();
+            totalBytesReceived.addAndGet(responseBody.length());
             JsonNode responseNode = mapper.readTree(responseBody);
             
             if (responseNode.has("errors")) {
@@ -535,6 +586,7 @@ public class GraphQLSourceTask extends SourceTask {
         log.info("Stopping GraphQL Source Task. Total records processed: {}", recordsProcessed);
         isShuttingDown = true;
         
+        unregisterMBean();
         cleanupResources();
         
         log.info("GraphQL Source Task stopped successfully");
@@ -605,6 +657,208 @@ public class GraphQLSourceTask extends SourceTask {
         lastCommittedCursor = null;
         
         log.debug("All resources cleaned up");
+    }
+
+    private void unregisterMBean() {
+        if (mbeanServer != null && mbeanName != null) {
+            try {
+                if (mbeanServer.isRegistered(mbeanName)) {
+                    mbeanServer.unregisterMBean(mbeanName);
+                    log.info("Unregistered JMX MBean: {}", mbeanName);
+                }
+            } catch (Exception e) {
+                log.error("Failed to unregister JMX MBean", e);
+            }
+        }
+    }
+
+    // JMX MBean Interface Implementation
+    @Override
+    public String getConnectorStatus() {
+        if (isShuttingDown) return "STOPPING";
+        if (!isHealthy) return "UNHEALTHY";
+        if (consecutiveFailures > 0) return "DEGRADED";
+        return "HEALTHY";
+    }
+
+    @Override
+    public boolean isHealthy() {
+        return isHealthy && !isShuttingDown;
+    }
+
+    @Override
+    public boolean isCircuitBreakerOpen() {
+        return !isHealthy && shouldStayInCircuitBreaker();
+    }
+
+    @Override
+    public int getConsecutiveFailures() {
+        return consecutiveFailures;
+    }
+
+    @Override
+    public String getLastFailureTime() {
+        return lastFailureTime != null ? lastFailureTime.toString() : "None";
+    }
+
+    @Override
+    public long getTotalRecordsProcessed() {
+        return recordsProcessed;
+    }
+
+    @Override
+    public long getTotalPollCycles() {
+        return totalPollCycles.get();
+    }
+
+    @Override
+    public long getTotalSuccessfulPollCycles() {
+        return successfulPollCycles.get();
+    }
+
+    @Override
+    public long getTotalFailedPollCycles() {
+        return failedPollCycles.get();
+    }
+
+    @Override
+    public double getRecordsPerSecond() {
+        long elapsedSeconds = Duration.between(metricsStartTime, Instant.now()).toSeconds();
+        return elapsedSeconds > 0 ? (double) recordsProcessed / elapsedSeconds : 0.0;
+    }
+
+    @Override
+    public long getAverageQueryTimeMs() {
+        long totalQueries = totalGraphQLQueries.get();
+        return totalQueries > 0 ? queryTimeAccumulator.get() / totalQueries : 0;
+    }
+
+    @Override
+    public long getLastQueryTimeMs() {
+        return lastQueryTime != null ? Duration.between(lastQueryTime.minusMillis(1000), lastQueryTime).toMillis() : 0;
+    }
+
+    @Override
+    public String getEntityName() {
+        return config != null ? config.entityName() : "Unknown";
+    }
+
+    @Override
+    public String getGraphQLEndpoint() {
+        return config != null ? config.endpoint() : "Unknown";
+    }
+
+    @Override
+    public String getCurrentCursor() {
+        return nextCursor != null ? nextCursor : "None";
+    }
+
+    @Override
+    public String getLastCommittedCursor() {
+        return lastCommittedCursor != null ? lastCommittedCursor : "None";
+    }
+
+    @Override
+    public long getTotalGraphQLQueries() {
+        return totalGraphQLQueries.get();
+    }
+
+    @Override
+    public long getTotalGraphQLErrors() {
+        return totalGraphQLErrors.get();
+    }
+
+    @Override
+    public long getTotalRetryAttempts() {
+        return totalRetryAttempts.get();
+    }
+
+    @Override
+    public int getActiveConnections() {
+        return client != null ? client.connectionPool().connectionCount() : 0;
+    }
+
+    @Override
+    public int getIdleConnections() {
+        return client != null ? client.connectionPool().idleConnectionCount() : 0;
+    }
+
+    @Override
+    public long getTotalBytesReceived() {
+        return totalBytesReceived.get();
+    }
+
+    @Override
+    public String getLastErrorMessage() {
+        return lastErrorMessage.get();
+    }
+
+    @Override
+    public String getLastErrorTime() {
+        Instant errorTime = lastErrorTime.get();
+        return errorTime != null ? errorTime.toString() : "None";
+    }
+
+    @Override
+    public double getErrorRate() {
+        long totalPolls = totalPollCycles.get();
+        return totalPolls > 0 ? (double) failedPollCycles.get() / totalPolls : 0.0;
+    }
+
+    @Override
+    public long getPollingIntervalMs() {
+        return config != null ? config.pollingIntervalMs() : 0;
+    }
+
+    @Override
+    public int getResultSize() {
+        return config != null ? config.resultSize() : 0;
+    }
+
+    @Override
+    public String getSelectedColumns() {
+        return config != null ? String.join(",", config.selectedColumns()) : "Unknown";
+    }
+
+    @Override
+    public void resetMetrics() {
+        totalPollCycles.set(0);
+        successfulPollCycles.set(0);
+        failedPollCycles.set(0);
+        totalGraphQLQueries.set(0);
+        totalGraphQLErrors.set(0);
+        totalRetryAttempts.set(0);
+        totalBytesReceived.set(0);
+        queryTimeAccumulator.set(0);
+        recordsProcessed = 0;
+        metricsStartTime = Instant.now();
+        log.info("JMX metrics reset");
+    }
+
+    @Override
+    public void resetErrorTracking() {
+        consecutiveFailures = 0;
+        lastFailureTime = null;
+        lastErrorMessage.set(null);
+        lastErrorTime.set(null);
+        isHealthy = true;
+        log.info("Error tracking reset");
+    }
+
+    @Override
+    public String getHealthSummary() {
+        return String.format(
+            "Status: %s | Records: %d | Polls: %d (Success: %d, Failed: %d) | Error Rate: %.2f%% | Queries: %d (Errors: %d) | Avg Query Time: %dms",
+            getConnectorStatus(),
+            recordsProcessed,
+            totalPollCycles.get(),
+            successfulPollCycles.get(),
+            failedPollCycles.get(),
+            getErrorRate() * 100,
+            totalGraphQLQueries.get(),
+            totalGraphQLErrors.get(),
+            getAverageQueryTimeMs()
+        );
     }
 
     private record GraphQLQueryResult(List<JsonNode> nodes, String endCursor, boolean hasNextPage) {}
