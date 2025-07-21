@@ -1,0 +1,24 @@
+# Integration Test Docker Container
+FROM openjdk:17-jdk-slim
+
+# Install Maven
+RUN apt-get update && \
+    apt-get install -y maven wget curl && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy Maven configuration
+COPY pom.xml .
+
+# Download dependencies (this layer will be cached if pom.xml doesn't change)
+RUN mvn dependency:go-offline -q
+
+# Copy source code
+COPY src ./src
+
+# Wait for services and run integration tests
+COPY wait-for-services.sh .
+RUN chmod +x wait-for-services.sh
+
+CMD ["./wait-for-services.sh"]

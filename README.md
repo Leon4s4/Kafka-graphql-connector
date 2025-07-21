@@ -1,5 +1,11 @@
 # Kafka GraphQL Source Connector
 
+[![CI/CD Pipeline](https://github.com/your-username/kafka-graphql-connector/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/kafka-graphql-connector/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/your-username/kafka-graphql-connector/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/your-username/kafka-graphql-connector/actions/workflows/github-code-scanning/codeql)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Java](https://img.shields.io/badge/Java-17%2B-orange.svg)](https://openjdk.java.net/projects/jdk/17/)
+[![Kafka](https://img.shields.io/badge/Kafka-3.7.0-red.svg)](https://kafka.apache.org/)
+
 A robust Kafka Connect source connector that streams data from GraphQL APIs to Kafka topics with support for pagination, authentication, error handling, and comprehensive monitoring.
 
 ## Features
@@ -393,14 +399,36 @@ mvn clean package
 ### Running Tests
 
 ```bash
+# Unit tests only
 mvn test
+
+# Integration tests (requires Docker)
+./run-integration-tests.sh
+
+# All tests with coverage
+mvn clean test jacoco:report
 ```
+
+### CI/CD Pipeline
+
+The project includes comprehensive GitHub Actions workflows:
+
+- **🚀 CI/CD Pipeline**: Automated testing, building, and releases
+- **🔍 PR Checks**: Fast feedback for pull requests  
+- **🌙 Nightly Builds**: Extended testing and performance validation
+- **📦 Automatic Releases**: Version tagging and JAR distribution
+
+**Build Status**: All tests are automated and must pass before merging.
+
+See [CI-CD.md](CI-CD.md) for complete pipeline documentation.
 
 ### Code Coverage
 
 ```bash
 mvn jacoco:report
 ```
+
+Coverage reports are automatically generated and tracked in CI/CD.
 
 ## Contributing
 

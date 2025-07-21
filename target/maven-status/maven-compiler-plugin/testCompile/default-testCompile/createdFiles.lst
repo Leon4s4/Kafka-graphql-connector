@@ -1,3 +1,4 @@
+com/example/graphqlconnector/GraphQLSourceConnectorConfigTest.class
+com/example/graphqlconnector/integration/GraphQLSourceConnectorIntegrationTest.class
 com/example/graphqlconnector/GraphQLSourceTaskTest.class
 com/example/graphqlconnector/GraphQLSourceConnectorTest.class
-com/example/graphqlconnector/GraphQLSourceConnectorConfigTest.class

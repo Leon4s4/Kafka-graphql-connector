@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.example.graphqlconnector.GraphQLSourceConnectorTest" time="0.0" tests="5" errors="1" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest" time="60.271" tests="1" errors="1" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="24"/>
     <property name="sun.jnu.encoding" value="UTF-8"/>
@@ -59,32 +59,17 @@
     <property name="socksNonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="java.class.version" value="68.0"/>
   </properties>
-  <testcase name="testTaskConfigs" classname="com.example.graphqlconnector.GraphQLSourceConnectorTest" time="0.0"/>
-  <testcase name="testStartStop" classname="com.example.graphqlconnector.GraphQLSourceConnectorTest" time="0.0"/>
-  <testcase name="testConfigDef" classname="com.example.graphqlconnector.GraphQLSourceConnectorTest" time="0.0">
-    <error message="Unresolved compilation problems: &#10;	The method config() from the type GraphQLSourceConnector refers to the missing type ConfigDef&#10;	ConfigDef cannot be resolved to a type&#10;	The method config() from the type GraphQLSourceConnector refers to the missing type ConfigDef&#10;" type="java.lang.Error"><![CDATA[java.lang.Error: 
-Unresolved compilation problems: 
-	The method config() from the type GraphQLSourceConnector refers to the missing type ConfigDef
-	ConfigDef cannot be resolved to a type
-	The method config() from the type GraphQLSourceConnector refers to the missing type ConfigDef
-
-	at com.example.graphqlconnector.GraphQLSourceConnectorTest.testConfigDef(GraphQLSourceConnectorTest.java:41)
+  <testcase name="" classname="com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest" time="60.268">
+    <error message="Mock GraphQL API is not ready after 30 attempts" type="java.lang.RuntimeException"><![CDATA[java.lang.RuntimeException: Mock GraphQL API is not ready after 30 attempts
+	at com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest.waitForService(GraphQLSourceConnectorIntegrationTest.java:381)
+	at com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest.setUpClass(GraphQLSourceConnectorIntegrationTest.java:52)
 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
 	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
 	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
 	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
-	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
-	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
-	at org.junit.runners.BlockJUnit4ClassRunner$1.evaluate(BlockJUnit4ClassRunner.java:100)
-	at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:366)
-	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:103)
-	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:63)
-	at org.junit.runners.ParentRunner$4.run(ParentRunner.java:331)
-	at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:79)
-	at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:329)
-	at org.junit.runners.ParentRunner.access$100(ParentRunner.java:66)
-	at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:293)
+	at org.junit.internal.runners.statements.RunBefores.invokeMethod(RunBefores.java:33)
+	at org.junit.internal.runners.statements.RunBefores.evaluate(RunBefores.java:24)
 	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
 	at org.junit.runners.ParentRunner.run(ParentRunner.java:413)
 	at org.apache.maven.surefire.junit4.JUnit4Provider.execute(JUnit4Provider.java:316)
@@ -96,7 +81,36 @@ Unresolved compilation problems:
 	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
 	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
 ]]></error>
+    <system-err><![CDATA[[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 1/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 2/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 3/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 4/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 5/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 6/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 7/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 8/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 9/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 10/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 11/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 12/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 13/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 14/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 15/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 16/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 17/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 18/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 19/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 20/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 21/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 22/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 23/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 24/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 25/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 26/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 27/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 28/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 29/30)
+[main] INFO com.example.graphqlconnector.integration.GraphQLSourceConnectorIntegrationTest - Waiting for Mock GraphQL API to be ready... (attempt 30/30)
+]]></system-err>
   </testcase>
-  <testcase name="testVersion" classname="com.example.graphqlconnector.GraphQLSourceConnectorTest" time="0.0"/>
-  <testcase name="testTaskClass" classname="com.example.graphqlconnector.GraphQLSourceConnectorTest" time="0.0"/>
 </testsuite>

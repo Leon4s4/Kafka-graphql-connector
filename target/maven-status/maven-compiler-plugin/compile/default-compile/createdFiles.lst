@@ -2,3 +2,4 @@ com/example/graphqlconnector/GraphQLSourceTask.class
 com/example/graphqlconnector/GraphQLSourceConnector.class
 com/example/graphqlconnector/GraphQLSourceTask$GraphQLQueryResult.class
 com/example/graphqlconnector/GraphQLSourceConnectorConfig.class
+com/example/graphqlconnector/GraphQLSourceTaskMBean.class

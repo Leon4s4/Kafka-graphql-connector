@@ -1,0 +1,288 @@
+name: Nightly Build
+
+on:
+  schedule:
+    # Run at 2 AM UTC every day
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Allow manual triggering
+
+env:
+  JAVA_VERSION: 17
+  MAVEN_OPTS: -Xmx2048m
+
+jobs:
+  # Extended integration tests with different configurations
+  extended-integration:
+    runs-on: ubuntu-latest
+    name: Extended Integration Tests
+    strategy:
+      matrix:
+        # Test different Java versions
+        java: [17, 21]
+        # Test different configurations
+        config: [users, products]
+      fail-fast: false
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK ${{ matrix.java }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ matrix.java }}
+        distribution: 'temurin'
+        cache: maven
+        
+    - name: Build project
+      run: mvn clean compile -B
+      
+    - name: Start all services
+      run: |
+        docker-compose up -d --build
+        
+    - name: Wait for all services
+      run: |
+        # Extended wait time for nightly builds
+        ./wait-for-services.sh || exit 1
+        
+    - name: Run full integration test suite
+      run: |
+        mvn failsafe:integration-test failsafe:verify -B
+        
+    - name: Test connector with ${{ matrix.config }} configuration
+      run: |
+        # Test actual connector deployment
+        curl -X POST http://localhost:8083/connectors \
+          -H "Content-Type: application/json" \
+          -d @connectors/${{ matrix.config }}-connector.json
+          
+        # Wait for connector to start
+        sleep 10
+        
+        # Check connector status
+        status=$(curl -s http://localhost:8083/connectors/graphql-${{ matrix.config }}-connector/status | jq -r '.connector.state')
+        if [ "$status" != "RUNNING" ]; then
+          echo "Connector failed to start: $status"
+          curl -s http://localhost:8083/connectors/graphql-${{ matrix.config }}-connector/status | jq '.'
+          exit 1
+        fi
+        
+        # Verify data is flowing
+        sleep 30
+        
+        # Check that topics exist and have data
+        docker-compose exec -T kafka kafka-console-consumer \
+          --bootstrap-server localhost:9092 \
+          --topic graphql_${{ matrix.config }} \
+          --from-beginning \
+          --max-messages 1 \
+          --timeout-ms 30000 || {
+          echo "No data found in topic graphql_${{ matrix.config }}"
+          exit 1
+        }
+        
+    - name: Performance test
+      run: |
+        echo "Running performance tests..."
+        # Let connector run for 5 minutes to collect performance data
+        sleep 300
+        
+        # Get JMX metrics
+        curl -s http://localhost:8083/connectors/graphql-${{ matrix.config }}-connector/status | jq '.'
+        
+        # Check message throughput
+        message_count=$(docker-compose exec -T kafka kafka-run-class kafka.tools.GetOffsetShell \
+          --broker-list localhost:9092 \
+          --topic graphql_${{ matrix.config }} \
+          --time -1 | awk -F: '{sum += $NF} END {print sum}')
+        
+        echo "Total messages processed: $message_count"
+        
+        # Expect at least some messages in 5 minutes
+        if [ "$message_count" -lt 10 ]; then
+          echo "Warning: Low message throughput detected"
+        fi
+        
+    - name: Memory usage analysis
+      run: |
+        # Check Java process memory usage
+        docker-compose exec -T kafka-connect jps -v
+        docker stats --no-stream
+        
+    - name: Upload nightly test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: nightly-results-java${{ matrix.java }}-${{ matrix.config }}
+        path: |
+          target/failsafe-reports/
+          target/site/jacoco/
+        retention-days: 7
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        docker-compose down -v
+        docker system prune -f
+
+  # Load testing
+  load-test:
+    runs-on: ubuntu-latest
+    name: Load Testing
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+        
+    - name: Start services with increased resources
+      run: |
+        # Modify mock API to generate more data
+        sed -i 's/length: 100/length: 1000/' test-graphql-api/server.js
+        sed -i 's/length: 50/length: 500/' test-graphql-api/server.js
+        
+        docker-compose up -d --build
+        
+    - name: Wait for services
+      run: ./wait-for-services.sh
+      
+    - name: Deploy connector with high-throughput config
+      run: |
+        # Create high-performance configuration
+        cat > high-perf-connector.json << EOF
+        {
+          "name": "load-test-connector",
+          "config": {
+            "connector.class": "com.example.graphqlconnector.GraphQLSourceConnector",
+            "tasks.max": "1",
+            "graphql.endpoint.url": "http://mock-graphql-api:4000/graphql",
+            "graphql.query": "query GetUsers(\$first: Int!, \$after: String) { users(first: \$first, after: \$after) { edges { node { id name email createdAt status } cursor } pageInfo { hasNextPage endCursor } } }",
+            "data.path": "users.edges[*].node",
+            "pagination.cursor.path": "users.pageInfo.endCursor",
+            "pagination.hasmore.path": "users.pageInfo.hasNextPage",
+            "record.key.path": "id",
+            "result.size": "100",
+            "polling.interval.ms": "1000",
+            "kafka.topic.name": "load_test_users",
+            "query.timeout.ms": "30000",
+            "max.retries": "3",
+            "retry.backoff.ms": "1000"
+          }
+        }
+        EOF
+        
+        curl -X POST http://localhost:8083/connectors \
+          -H "Content-Type: application/json" \
+          -d @high-perf-connector.json
+          
+    - name: Run load test
+      run: |
+        echo "Starting 30-minute load test..."
+        start_time=$(date +%s)
+        
+        # Monitor for 30 minutes
+        for i in {1..180}; do
+          sleep 10
+          
+          # Get current message count
+          count=$(docker-compose exec -T kafka kafka-run-class kafka.tools.GetOffsetShell \
+            --broker-list localhost:9092 \
+            --topic load_test_users \
+            --time -1 | awk -F: '{sum += $NF} END {print sum}')
+          
+          echo "Time: ${i}0s, Messages: $count"
+          
+          # Check connector health
+          status=$(curl -s http://localhost:8083/connectors/load-test-connector/status | jq -r '.connector.state')
+          if [ "$status" != "RUNNING" ]; then
+            echo "Connector failed during load test: $status"
+            exit 1
+          fi
+        done
+        
+        end_time=$(date +%s)
+        duration=$((end_time - start_time))
+        
+        # Final metrics
+        final_count=$(docker-compose exec -T kafka kafka-run-class kafka.tools.GetOffsetShell \
+          --broker-list localhost:9092 \
+          --topic load_test_users \
+          --time -1 | awk -F: '{sum += $NF} END {print sum}')
+        
+        throughput=$((final_count / duration))
+        
+        echo "Load test completed:"
+        echo "Duration: ${duration} seconds"
+        echo "Messages: $final_count"
+        echo "Throughput: $throughput messages/second"
+        
+        # Save results
+        cat > load-test-results.json << EOF
+        {
+          "duration_seconds": $duration,
+          "total_messages": $final_count,
+          "throughput_msg_per_sec": $throughput,
+          "test_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        }
+        EOF
+        
+    - name: Upload load test results
+      uses: actions/upload-artifact@v4
+      with:
+        name: load-test-results
+        path: load-test-results.json
+        retention-days: 30
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        docker-compose down -v
+
+  # Report nightly build results
+  report:
+    runs-on: ubuntu-latest
+    name: Nightly Report
+    needs: [extended-integration, load-test]
+    if: always()
+    
+    steps:
+    - name: Create summary report
+      run: |
+        echo "# Nightly Build Report - $(date)" > report.md
+        echo "" >> report.md
+        echo "## Test Results" >> report.md
+        
+        if [ "${{ needs.extended-integration.result }}" = "success" ]; then
+          echo "✅ Extended integration tests passed" >> report.md
+        else
+          echo "❌ Extended integration tests failed" >> report.md
+        fi
+        
+        if [ "${{ needs.load-test.result }}" = "success" ]; then
+          echo "✅ Load testing completed successfully" >> report.md
+        else
+          echo "❌ Load testing failed" >> report.md
+        fi
+        
+        echo "" >> report.md
+        echo "## Next Steps" >> report.md
+        echo "- Review any failed tests" >> report.md
+        echo "- Check performance metrics" >> report.md
+        echo "- Update documentation if needed" >> report.md
+        
+        cat report.md
+        
+    # Could add notification here (Slack, email, etc.)
+    # - name: Notify on failure
+    #   if: failure()
+    #   uses: 8398a7/action-slack@v3
+    #   with:
+    #     status: failure

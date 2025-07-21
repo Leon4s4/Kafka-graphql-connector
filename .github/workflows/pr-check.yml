@@ -1,0 +1,138 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+env:
+  JAVA_VERSION: 17
+  MAVEN_OPTS: -Xmx1024m
+
+jobs:
+  # Quick validation for PRs
+  validate:
+    runs-on: ubuntu-latest
+    name: Quick Validation
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+        
+    - name: Validate Maven structure
+      run: mvn validate -B
+      
+    - name: Check code compilation
+      run: mvn clean compile -B
+      
+    - name: Run unit tests
+      run: mvn test -B
+      
+    - name: Check package build
+      run: mvn package -B -DskipTests
+      
+    - name: Validate Docker setup
+      run: |
+        docker-compose config
+        docker-compose -f docker-compose.integration.yml config
+        
+  # Integration test on PRs (only if unit tests pass)
+  integration-pr:
+    runs-on: ubuntu-latest
+    name: PR Integration Test
+    needs: validate
+    # Only run integration tests if it's not a draft PR
+    if: github.event.pull_request.draft == false
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+        
+    - name: Build project
+      run: mvn clean compile -B
+      
+    - name: Start essential services only
+      run: |
+        # Start only the services needed for integration tests
+        docker-compose up -d zookeeper kafka mock-graphql-api
+        
+    - name: Wait for essential services
+      run: |
+        # Wait for Mock GraphQL API
+        timeout=30
+        while ! curl -f http://localhost:4000/health > /dev/null 2>&1; do
+          echo "Waiting for GraphQL API... ($timeout)"
+          sleep 2
+          timeout=$((timeout - 2))
+          if [ $timeout -le 0 ]; then
+            echo "Service startup timeout"
+            exit 1
+          fi
+        done
+        
+        # Quick Kafka check
+        timeout=60
+        while ! docker-compose exec -T kafka kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1; do
+          echo "Waiting for Kafka... ($timeout)"
+          sleep 3
+          timeout=$((timeout - 3))
+          if [ $timeout -le 0 ]; then
+            echo "Kafka startup timeout"
+            exit 1
+          fi
+        done
+        
+    - name: Run smoke tests
+      run: |
+        # Run a subset of integration tests for faster feedback
+        mvn failsafe:integration-test -B -Dtest=*IntegrationTest#testBasicDataIngestion
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        docker-compose down -v
+        
+  # Code quality check for PRs
+  pr-quality:
+    runs-on: ubuntu-latest
+    name: PR Code Quality
+    needs: validate
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+        
+    - name: Run tests with coverage
+      run: mvn clean test jacoco:report -B
+      
+    - name: Comment coverage on PR
+      uses: madrapps/jacoco-report@v1.6.1
+      with:
+        paths: target/site/jacoco/jacoco.xml
+        token: ${{ secrets.GITHUB_TOKEN }}
+        min-coverage-overall: 70
+        min-coverage-changed-files: 80
+        title: Code Coverage Report
+        update-comment: true

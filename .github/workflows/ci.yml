@@ -1,0 +1,325 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  JAVA_VERSION: 17
+  MAVEN_OPTS: -Xmx1024m
+
+jobs:
+  # Unit Tests - Fast feedback
+  unit-tests:
+    runs-on: ubuntu-latest
+    name: Unit Tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+        
+    - name: Run unit tests
+      run: mvn clean test -B
+      
+    - name: Generate test report
+      uses: dorny/test-reporter@v1
+      if: success() || failure()
+      with:
+        name: Unit Test Results
+        path: target/surefire-reports/*.xml
+        reporter: java-junit
+        
+    - name: Upload unit test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: unit-test-results
+        path: |
+          target/surefire-reports/
+          target/site/jacoco/
+
+  # Integration Tests - Full environment
+  integration-tests:
+    runs-on: ubuntu-latest
+    name: Integration Tests
+    needs: unit-tests
+    
+    services:
+      # We'll use Docker Compose instead of GitHub services for more control
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+        
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Build project
+      run: mvn clean compile -B
+      
+    - name: Start test services
+      run: |
+        echo "Starting Docker services for integration tests..."
+        docker-compose up -d --build
+        
+    - name: Wait for services to be ready
+      run: |
+        echo "Waiting for services to be healthy..."
+        
+        # Wait for Mock GraphQL API
+        timeout=60
+        while ! curl -f http://localhost:4000/health > /dev/null 2>&1; do
+          echo "Waiting for Mock GraphQL API... ($timeout seconds remaining)"
+          sleep 2
+          timeout=$((timeout - 2))
+          if [ $timeout -le 0 ]; then
+            echo "Mock GraphQL API failed to start"
+            docker-compose logs mock-graphql-api
+            exit 1
+          fi
+        done
+        echo "✅ Mock GraphQL API is ready"
+        
+        # Wait for Kafka Connect
+        timeout=120
+        while ! curl -f http://localhost:8083/connectors > /dev/null 2>&1; do
+          echo "Waiting for Kafka Connect... ($timeout seconds remaining)"
+          sleep 5
+          timeout=$((timeout - 5))
+          if [ $timeout -le 0 ]; then
+            echo "Kafka Connect failed to start"
+            docker-compose logs kafka-connect
+            docker-compose logs kafka
+            exit 1
+          fi
+        done
+        echo "✅ Kafka Connect is ready"
+        
+        # Test Kafka broker
+        docker-compose exec -T kafka kafka-broker-api-versions --bootstrap-server localhost:9092 || {
+          echo "Kafka broker health check failed"
+          docker-compose logs kafka
+          exit 1
+        }
+        echo "✅ Kafka broker is ready"
+        
+    - name: Run integration tests
+      run: |
+        echo "Running integration tests..."
+        mvn failsafe:integration-test failsafe:verify -B
+        
+    - name: Generate integration test report
+      uses: dorny/test-reporter@v1
+      if: success() || failure()
+      with:
+        name: Integration Test Results
+        path: target/failsafe-reports/*.xml
+        reporter: java-junit
+        
+    - name: Upload integration test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: integration-test-results
+        path: |
+          target/failsafe-reports/
+          target/site/jacoco/
+          
+    - name: Collect service logs on failure
+      if: failure()
+      run: |
+        echo "=== Mock GraphQL API Logs ==="
+        docker-compose logs mock-graphql-api
+        echo "=== Kafka Connect Logs ==="
+        docker-compose logs kafka-connect
+        echo "=== Kafka Logs ==="
+        docker-compose logs kafka
+        echo "=== Zookeeper Logs ==="
+        docker-compose logs zookeeper
+        
+    - name: Stop services
+      if: always()
+      run: |
+        docker-compose down -v
+        docker system prune -f
+
+  # Build and Package
+  build:
+    runs-on: ubuntu-latest
+    name: Build Package
+    needs: [unit-tests, integration-tests]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+        
+    - name: Build package
+      run: mvn clean package -B -DskipTests
+      
+    - name: Generate dependency tree
+      run: mvn dependency:tree > dependency-tree.txt
+      
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts
+        path: |
+          target/*.jar
+          dependency-tree.txt
+          
+    - name: Upload connector JAR
+      uses: actions/upload-artifact@v4
+      with:
+        name: kafka-connector
+        path: target/graphql-kafka-connector-*.jar
+
+  # Code Quality Analysis
+  code-quality:
+    runs-on: ubuntu-latest
+    name: Code Quality
+    needs: unit-tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        # Fetch full history for better analysis
+        fetch-depth: 0
+        
+    - name: Set up JDK ${{ env.JAVA_VERSION }}
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+        cache: maven
+        
+    - name: Run tests with coverage
+      run: mvn clean test jacoco:report -B
+      
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: target/site/jacoco/jacoco.xml
+        flags: unittests
+        name: codecov-umbrella
+        
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-reports
+        path: target/site/jacoco/
+
+  # Security Scan
+  security:
+    runs-on: ubuntu-latest
+    name: Security Scan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Release (only on main branch)
+  release:
+    runs-on: ubuntu-latest
+    name: Release
+    needs: [build, code-quality, integration-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: kafka-connector
+        path: ./artifacts
+        
+    - name: Create release tag
+      id: create_tag
+      run: |
+        # Generate version based on date and commit
+        VERSION="v$(date +%Y.%m.%d)-${GITHUB_SHA:0:7}"
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        git tag $VERSION
+        git push origin $VERSION
+        
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.create_tag.outputs.version }}
+        release_name: GraphQL Kafka Connector ${{ steps.create_tag.outputs.version }}
+        body: |
+          ## GraphQL Kafka Connector Release
+          
+          ### 🚀 Features
+          - Full GraphQL to Kafka data streaming
+          - Cursor-based pagination support
+          - Circuit breaker error handling
+          - JMX monitoring and health checks
+          - Docker deployment ready
+          
+          ### 📦 Deployment
+          1. Download the JAR file below
+          2. Copy to your Kafka Connect plugins directory
+          3. Restart Kafka Connect
+          4. Use the configuration examples in the repository
+          
+          ### 🧪 Testing
+          - ✅ All unit tests passing
+          - ✅ All integration tests passing
+          - ✅ Code quality checks passed
+          
+          **Full documentation:** [README.md](https://github.com/${{ github.repository }}/blob/main/README.md)
+        draft: false
+        prerelease: false
+        
+    - name: Upload release asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./artifacts/graphql-kafka-connector-0.1.0-SNAPSHOT.jar
+        asset_name: graphql-kafka-connector-${{ steps.create_tag.outputs.version }}.jar
+        asset_content_type: application/java-archive
