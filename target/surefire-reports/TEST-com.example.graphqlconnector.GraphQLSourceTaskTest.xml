@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.65" tests="11" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.672" tests="9" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="24"/>
     <property name="sun.jnu.encoding" value="UTF-8"/>
-    <property name="java.class.path" value="/Users/Git/Kafka-graphql-connector/target/test-classes:/Users/Git/Kafka-graphql-connector/target/classes:/Users/leonardosantana/.m2/repository/org/apache/kafka/connect-api/3.7.0/connect-api-3.7.0.jar:/Users/leonardosantana/.m2/repository/org/apache/kafka/kafka-clients/3.7.0/kafka-clients-3.7.0.jar:/Users/leonardosantana/.m2/repository/com/github/luben/zstd-jni/1.5.5-6/zstd-jni-1.5.5-6.jar:/Users/leonardosantana/.m2/repository/org/lz4/lz4-java/1.8.0/lz4-java-1.8.0.jar:/Users/leonardosantana/.m2/repository/org/xerial/snappy/snappy-java/1.1.10.5/snappy-java-1.1.10.5.jar:/Users/leonardosantana/.m2/repository/javax/ws/rs/javax.ws.rs-api/2.1.1/javax.ws.rs-api-2.1.1.jar:/Users/leonardosantana/.m2/repository/com/squareup/okhttp3/okhttp/4.12.0/okhttp-4.12.0.jar:/Users/leonardosantana/.m2/repository/com/squareup/okio/okio/3.6.0/okio-3.6.0.jar:/Users/leonardosantana/.m2/repository/com/squareup/okio/okio-jvm/3.6.0/okio-jvm-3.6.0.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib-common/1.9.10/kotlin-stdlib-common-1.9.10.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.8.21/kotlin-stdlib-jdk8-1.8.21.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib/1.8.21/kotlin-stdlib-1.8.21.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/annotations/13.0/annotations-13.0.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.8.21/kotlin-stdlib-jdk7-1.8.21.jar:/Users/leonardosantana/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.17.1/jackson-databind-2.17.1.jar:/Users/leonardosantana/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.17.1/jackson-annotations-2.17.1.jar:/Users/leonardosantana/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.17.1/jackson-core-2.17.1.jar:/Users/leonardosantana/.m2/repository/org/slf4j/slf4j-api/2.0.7/slf4j-api-2.0.7.jar:/Users/leonardosantana/.m2/repository/org/slf4j/slf4j-simple/2.0.7/slf4j-simple-2.0.7.jar:/Users/leonardosantana/.m2/repository/junit/junit/4.13.2/junit-4.13.2.jar:/Users/leonardosantana/.m2/repository/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar:/Users/leonardosantana/.m2/repository/org/mockito/mockito-core/5.3.1/mockito-core-5.3.1.jar:/Users/leonardosantana/.m2/repository/net/bytebuddy/byte-buddy/1.14.4/byte-buddy-1.14.4.jar:/Users/leonardosantana/.m2/repository/net/bytebuddy/byte-buddy-agent/1.14.4/byte-buddy-agent-1.14.4.jar:/Users/leonardosantana/.m2/repository/org/objenesis/objenesis/3.3/objenesis-3.3.jar:"/>
+    <property name="java.class.path" value="/Users/Git/Kafka-graphql-connector/target/test-classes:/Users/Git/Kafka-graphql-connector/target/classes:/Users/leonardosantana/.m2/repository/org/apache/kafka/connect-api/3.7.0/connect-api-3.7.0.jar:/Users/leonardosantana/.m2/repository/org/apache/kafka/kafka-clients/3.7.0/kafka-clients-3.7.0.jar:/Users/leonardosantana/.m2/repository/com/github/luben/zstd-jni/1.5.5-6/zstd-jni-1.5.5-6.jar:/Users/leonardosantana/.m2/repository/org/lz4/lz4-java/1.8.0/lz4-java-1.8.0.jar:/Users/leonardosantana/.m2/repository/org/xerial/snappy/snappy-java/1.1.10.5/snappy-java-1.1.10.5.jar:/Users/leonardosantana/.m2/repository/javax/ws/rs/javax.ws.rs-api/2.1.1/javax.ws.rs-api-2.1.1.jar:/Users/leonardosantana/.m2/repository/com/squareup/okhttp3/okhttp/4.12.0/okhttp-4.12.0.jar:/Users/leonardosantana/.m2/repository/com/squareup/okio/okio/3.6.0/okio-3.6.0.jar:/Users/leonardosantana/.m2/repository/com/squareup/okio/okio-jvm/3.6.0/okio-jvm-3.6.0.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib-common/1.9.10/kotlin-stdlib-common-1.9.10.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.8.21/kotlin-stdlib-jdk8-1.8.21.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib/1.8.21/kotlin-stdlib-1.8.21.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/annotations/13.0/annotations-13.0.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.8.21/kotlin-stdlib-jdk7-1.8.21.jar:/Users/leonardosantana/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.17.1/jackson-databind-2.17.1.jar:/Users/leonardosantana/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.17.1/jackson-annotations-2.17.1.jar:/Users/leonardosantana/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.17.1/jackson-core-2.17.1.jar:/Users/leonardosantana/.m2/repository/org/slf4j/slf4j-api/2.0.7/slf4j-api-2.0.7.jar:/Users/leonardosantana/.m2/repository/org/slf4j/slf4j-simple/2.0.7/slf4j-simple-2.0.7.jar:/Users/leonardosantana/.m2/repository/com/jayway/jsonpath/json-path/2.8.0/json-path-2.8.0.jar:/Users/leonardosantana/.m2/repository/net/minidev/json-smart/2.4.10/json-smart-2.4.10.jar:/Users/leonardosantana/.m2/repository/net/minidev/accessors-smart/2.4.9/accessors-smart-2.4.9.jar:/Users/leonardosantana/.m2/repository/org/ow2/asm/asm/9.3/asm-9.3.jar:/Users/leonardosantana/.m2/repository/junit/junit/4.13.2/junit-4.13.2.jar:/Users/leonardosantana/.m2/repository/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar:/Users/leonardosantana/.m2/repository/org/mockito/mockito-core/5.3.1/mockito-core-5.3.1.jar:/Users/leonardosantana/.m2/repository/net/bytebuddy/byte-buddy/1.14.4/byte-buddy-1.14.4.jar:/Users/leonardosantana/.m2/repository/net/bytebuddy/byte-buddy-agent/1.14.4/byte-buddy-agent-1.14.4.jar:/Users/leonardosantana/.m2/repository/org/objenesis/objenesis/3.3/objenesis-3.3.jar:"/>
     <property name="java.vm.vendor" value="Homebrew"/>
     <property name="sun.arch.data.model" value="64"/>
     <property name="java.vendor.url" value="https://github.com/Homebrew/homebrew-core/issues"/>
@@ -12,10 +12,10 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="CA"/>
     <property name="sun.boot.library.path" value="/opt/homebrew/Cellar/openjdk/24.0.1/libexec/openjdk.jdk/Contents/Home/lib"/>
-    <property name="sun.java.command" value="/Users/Git/Kafka-graphql-connector/target/surefire/surefirebooter-20250719095700903_3.jar /Users/Git/Kafka-graphql-connector/target/surefire 2025-07-19T09-57-00_859-jvmRun1 surefire-20250719095700903_1tmp surefire_0-20250719095700903_2tmp"/>
+    <property name="sun.java.command" value="/Users/Git/Kafka-graphql-connector/target/surefire/surefirebooter-20250721132712064_3.jar /Users/Git/Kafka-graphql-connector/target/surefire 2025-07-21T13-27-12_028-jvmRun1 surefire-20250721132712064_1tmp surefire_0-20250721132712064_2tmp"/>
     <property name="http.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="jdk.debug" value="release"/>
-    <property name="surefire.test.class.path" value="/Users/Git/Kafka-graphql-connector/target/test-classes:/Users/Git/Kafka-graphql-connector/target/classes:/Users/leonardosantana/.m2/repository/org/apache/kafka/connect-api/3.7.0/connect-api-3.7.0.jar:/Users/leonardosantana/.m2/repository/org/apache/kafka/kafka-clients/3.7.0/kafka-clients-3.7.0.jar:/Users/leonardosantana/.m2/repository/com/github/luben/zstd-jni/1.5.5-6/zstd-jni-1.5.5-6.jar:/Users/leonardosantana/.m2/repository/org/lz4/lz4-java/1.8.0/lz4-java-1.8.0.jar:/Users/leonardosantana/.m2/repository/org/xerial/snappy/snappy-java/1.1.10.5/snappy-java-1.1.10.5.jar:/Users/leonardosantana/.m2/repository/javax/ws/rs/javax.ws.rs-api/2.1.1/javax.ws.rs-api-2.1.1.jar:/Users/leonardosantana/.m2/repository/com/squareup/okhttp3/okhttp/4.12.0/okhttp-4.12.0.jar:/Users/leonardosantana/.m2/repository/com/squareup/okio/okio/3.6.0/okio-3.6.0.jar:/Users/leonardosantana/.m2/repository/com/squareup/okio/okio-jvm/3.6.0/okio-jvm-3.6.0.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib-common/1.9.10/kotlin-stdlib-common-1.9.10.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.8.21/kotlin-stdlib-jdk8-1.8.21.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib/1.8.21/kotlin-stdlib-1.8.21.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/annotations/13.0/annotations-13.0.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.8.21/kotlin-stdlib-jdk7-1.8.21.jar:/Users/leonardosantana/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.17.1/jackson-databind-2.17.1.jar:/Users/leonardosantana/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.17.1/jackson-annotations-2.17.1.jar:/Users/leonardosantana/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.17.1/jackson-core-2.17.1.jar:/Users/leonardosantana/.m2/repository/org/slf4j/slf4j-api/2.0.7/slf4j-api-2.0.7.jar:/Users/leonardosantana/.m2/repository/org/slf4j/slf4j-simple/2.0.7/slf4j-simple-2.0.7.jar:/Users/leonardosantana/.m2/repository/junit/junit/4.13.2/junit-4.13.2.jar:/Users/leonardosantana/.m2/repository/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar:/Users/leonardosantana/.m2/repository/org/mockito/mockito-core/5.3.1/mockito-core-5.3.1.jar:/Users/leonardosantana/.m2/repository/net/bytebuddy/byte-buddy/1.14.4/byte-buddy-1.14.4.jar:/Users/leonardosantana/.m2/repository/net/bytebuddy/byte-buddy-agent/1.14.4/byte-buddy-agent-1.14.4.jar:/Users/leonardosantana/.m2/repository/org/objenesis/objenesis/3.3/objenesis-3.3.jar:"/>
+    <property name="surefire.test.class.path" value="/Users/Git/Kafka-graphql-connector/target/test-classes:/Users/Git/Kafka-graphql-connector/target/classes:/Users/leonardosantana/.m2/repository/org/apache/kafka/connect-api/3.7.0/connect-api-3.7.0.jar:/Users/leonardosantana/.m2/repository/org/apache/kafka/kafka-clients/3.7.0/kafka-clients-3.7.0.jar:/Users/leonardosantana/.m2/repository/com/github/luben/zstd-jni/1.5.5-6/zstd-jni-1.5.5-6.jar:/Users/leonardosantana/.m2/repository/org/lz4/lz4-java/1.8.0/lz4-java-1.8.0.jar:/Users/leonardosantana/.m2/repository/org/xerial/snappy/snappy-java/1.1.10.5/snappy-java-1.1.10.5.jar:/Users/leonardosantana/.m2/repository/javax/ws/rs/javax.ws.rs-api/2.1.1/javax.ws.rs-api-2.1.1.jar:/Users/leonardosantana/.m2/repository/com/squareup/okhttp3/okhttp/4.12.0/okhttp-4.12.0.jar:/Users/leonardosantana/.m2/repository/com/squareup/okio/okio/3.6.0/okio-3.6.0.jar:/Users/leonardosantana/.m2/repository/com/squareup/okio/okio-jvm/3.6.0/okio-jvm-3.6.0.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib-common/1.9.10/kotlin-stdlib-common-1.9.10.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.8.21/kotlin-stdlib-jdk8-1.8.21.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib/1.8.21/kotlin-stdlib-1.8.21.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/annotations/13.0/annotations-13.0.jar:/Users/leonardosantana/.m2/repository/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.8.21/kotlin-stdlib-jdk7-1.8.21.jar:/Users/leonardosantana/.m2/repository/com/fasterxml/jackson/core/jackson-databind/2.17.1/jackson-databind-2.17.1.jar:/Users/leonardosantana/.m2/repository/com/fasterxml/jackson/core/jackson-annotations/2.17.1/jackson-annotations-2.17.1.jar:/Users/leonardosantana/.m2/repository/com/fasterxml/jackson/core/jackson-core/2.17.1/jackson-core-2.17.1.jar:/Users/leonardosantana/.m2/repository/org/slf4j/slf4j-api/2.0.7/slf4j-api-2.0.7.jar:/Users/leonardosantana/.m2/repository/org/slf4j/slf4j-simple/2.0.7/slf4j-simple-2.0.7.jar:/Users/leonardosantana/.m2/repository/com/jayway/jsonpath/json-path/2.8.0/json-path-2.8.0.jar:/Users/leonardosantana/.m2/repository/net/minidev/json-smart/2.4.10/json-smart-2.4.10.jar:/Users/leonardosantana/.m2/repository/net/minidev/accessors-smart/2.4.9/accessors-smart-2.4.9.jar:/Users/leonardosantana/.m2/repository/org/ow2/asm/asm/9.3/asm-9.3.jar:/Users/leonardosantana/.m2/repository/junit/junit/4.13.2/junit-4.13.2.jar:/Users/leonardosantana/.m2/repository/org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar:/Users/leonardosantana/.m2/repository/org/mockito/mockito-core/5.3.1/mockito-core-5.3.1.jar:/Users/leonardosantana/.m2/repository/net/bytebuddy/byte-buddy/1.14.4/byte-buddy-1.14.4.jar:/Users/leonardosantana/.m2/repository/net/bytebuddy/byte-buddy-agent/1.14.4/byte-buddy-agent-1.14.4.jar:/Users/leonardosantana/.m2/repository/org/objenesis/objenesis/3.3/objenesis-3.3.jar:"/>
     <property name="sun.cpu.endian" value="little"/>
     <property name="user.home" value="/Users/leonardosantana"/>
     <property name="user.language" value="en"/>
@@ -29,7 +29,7 @@
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
     <property name="apple.awt.application.name" value="ForkedBooter"/>
-    <property name="surefire.real.class.path" value="/Users/Git/Kafka-graphql-connector/target/surefire/surefirebooter-20250719095700903_3.jar"/>
+    <property name="surefire.real.class.path" value="/Users/Git/Kafka-graphql-connector/target/surefire/surefirebooter-20250721132712064_3.jar"/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="ftp.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="java.runtime.version" value="24.0.1"/>
@@ -58,93 +58,114 @@
     <property name="socksNonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="java.class.version" value="68.0"/>
   </properties>
-  <testcase name="testStartWithExistingOffset" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.615">
+  <testcase name="testStartWithExistingOffset" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.639">
     <system-err><![CDATA[WARNING: A Java agent has been loaded dynamically (/Users/leonardosantana/.m2/repository/net/bytebuddy/byte-buddy-agent/1.14.4/byte-buddy-agent-1.14.4.jar)
 WARNING: If a serviceability tool is in use, please run with -XX:+EnableDynamicAgentLoading to hide this warning
 WARNING: If a serviceability tool is not in use, please run with -Djdk.instrument.traceUsage for more information
 WARNING: Dynamic loading of agents will be disallowed by default in a future release
 [main] INFO com.example.graphqlconnector.GraphQLSourceTask - Starting GraphQL Source Task
 [main] INFO com.example.graphqlconnector.GraphQLSourceConnectorConfig - GraphQLSourceConnectorConfig values: 
-	entity.name = users
+	data.path = *.edges[*].node
 	graphql.endpoint.url = https://api.example.com/graphql
-	graphql.headers = 
+	graphql.headers = [hidden]
+	graphql.query = query GetEntity($first: Int!, $after: String) { users(first: $first, after: $after) { edges { node { id name email } cursor } pageInfo { hasNextPage endCursor } } }
+	graphql.variables = {}
+	kafka.topic.name = users
 	max.retries = 2
-	offset.field = id
+	pagination.cursor.path = *.pageInfo.endCursor
+	pagination.hasmore.path = *.pageInfo.hasNextPage
 	polling.interval.ms = 1000
 	query.timeout.ms = 5000
+	record.key.path = id
 	result.size = 10
 	retry.backoff.ms = 500
-	selected.columns = [id, name, email]
-	topic.prefix = 
 
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Loaded offset - cursor: cursor123, last_id: user456
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Loaded offset - cursor: cursor123, last_id: user456, timestamp: null
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Registered JMX MBean: com.example.graphqlconnector:type=GraphQLSourceTask,entity=users
 [main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task started successfully for entity: users
 [main] INFO com.example.graphqlconnector.GraphQLSourceTask - Stopping GraphQL Source Task. Total records processed: 0
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task stopped
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Unregistered JMX MBean: com.example.graphqlconnector:type=GraphQLSourceTask,entity=users
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - HTTP client cleanup completed successfully
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task stopped successfully
 ]]></system-err>
   </testcase>
-  <testcase name="testStartWithValidConfig" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.001">
+  <testcase name="testStartWithValidConfig" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.0">
     <system-err><![CDATA[[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Starting GraphQL Source Task
 [main] INFO com.example.graphqlconnector.GraphQLSourceConnectorConfig - GraphQLSourceConnectorConfig values: 
-	entity.name = users
+	data.path = *.edges[*].node
 	graphql.endpoint.url = https://api.example.com/graphql
-	graphql.headers = 
+	graphql.headers = [hidden]
+	graphql.query = query GetEntity($first: Int!, $after: String) { users(first: $first, after: $after) { edges { node { id name email } cursor } pageInfo { hasNextPage endCursor } } }
+	graphql.variables = {}
+	kafka.topic.name = users
 	max.retries = 2
-	offset.field = id
+	pagination.cursor.path = *.pageInfo.endCursor
+	pagination.hasmore.path = *.pageInfo.hasNextPage
 	polling.interval.ms = 1000
 	query.timeout.ms = 5000
+	record.key.path = id
 	result.size = 10
 	retry.backoff.ms = 500
-	selected.columns = [id, name, email]
-	topic.prefix = 
-
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - No existing offset found, starting from beginning
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task started successfully for entity: users
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Stopping GraphQL Source Task. Total records processed: 0
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task stopped
-]]></system-err>
-  </testcase>
-  <testcase name="testTopicNameWithoutPrefix" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.0">
-    <system-err><![CDATA[[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Starting GraphQL Source Task
-[main] INFO com.example.graphqlconnector.GraphQLSourceConnectorConfig - GraphQLSourceConnectorConfig values: 
-	entity.name = users
-	graphql.endpoint.url = https://api.example.com/graphql
-	graphql.headers = 
-	max.retries = 2
-	offset.field = id
-	polling.interval.ms = 1000
-	query.timeout.ms = 5000
-	result.size = 10
-	retry.backoff.ms = 500
-	selected.columns = [id, name, email]
-	topic.prefix = 
 
 [main] INFO com.example.graphqlconnector.GraphQLSourceTask - No existing offset found, starting from beginning
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Registered JMX MBean: com.example.graphqlconnector:type=GraphQLSourceTask,entity=users
 [main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task started successfully for entity: users
 [main] INFO com.example.graphqlconnector.GraphQLSourceTask - Stopping GraphQL Source Task. Total records processed: 0
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task stopped
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Unregistered JMX MBean: com.example.graphqlconnector:type=GraphQLSourceTask,entity=users
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - HTTP client cleanup completed successfully
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task stopped successfully
 ]]></system-err>
   </testcase>
-  <testcase name="testStartWithInvalidConfig" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.002">
+  <testcase name="testTopicNameWithoutPrefix" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.001">
     <system-err><![CDATA[[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Starting GraphQL Source Task
 [main] INFO com.example.graphqlconnector.GraphQLSourceConnectorConfig - GraphQLSourceConnectorConfig values: 
-	entity.name = users
+	data.path = *.edges[*].node
+	graphql.endpoint.url = https://api.example.com/graphql
+	graphql.headers = [hidden]
+	graphql.query = query GetEntity($first: Int!, $after: String) { users(first: $first, after: $after) { edges { node { id name email } cursor } pageInfo { hasNextPage endCursor } } }
+	graphql.variables = {}
+	kafka.topic.name = users
+	max.retries = 2
+	pagination.cursor.path = *.pageInfo.endCursor
+	pagination.hasmore.path = *.pageInfo.hasNextPage
+	polling.interval.ms = 1000
+	query.timeout.ms = 5000
+	record.key.path = id
+	result.size = 10
+	retry.backoff.ms = 500
+
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - No existing offset found, starting from beginning
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Registered JMX MBean: com.example.graphqlconnector:type=GraphQLSourceTask,entity=users
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task started successfully for entity: users
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Stopping GraphQL Source Task. Total records processed: 0
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Unregistered JMX MBean: com.example.graphqlconnector:type=GraphQLSourceTask,entity=users
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - HTTP client cleanup completed successfully
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task stopped successfully
+]]></system-err>
+  </testcase>
+  <testcase name="testStartWithInvalidConfig" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.001">
+    <system-err><![CDATA[[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Starting GraphQL Source Task
+[main] INFO com.example.graphqlconnector.GraphQLSourceConnectorConfig - GraphQLSourceConnectorConfig values: 
+	data.path = *.edges[*].node
 	graphql.endpoint.url = 
-	graphql.headers = 
+	graphql.headers = [hidden]
+	graphql.query = query GetEntity($first: Int!) { users(first: $first) { edges { node { id name } cursor } pageInfo { hasNextPage endCursor } } }
+	graphql.variables = {}
+	kafka.topic.name = users
 	max.retries = 3
-	offset.field = id
+	pagination.cursor.path = *.pageInfo.endCursor
+	pagination.hasmore.path = *.pageInfo.hasNextPage
 	polling.interval.ms = 30000
 	query.timeout.ms = 30000
+	record.key.path = id
 	result.size = 100
 	retry.backoff.ms = 1000
-	selected.columns = [id, name]
-	topic.prefix = 
 
 [main] ERROR com.example.graphqlconnector.GraphQLSourceTask - Failed to start GraphQL Source Task
 java.lang.IllegalArgumentException: GraphQL endpoint URL is required
-	at com.example.graphqlconnector.GraphQLSourceTask.validateConfiguration(GraphQLSourceTask.java:66)
-	at com.example.graphqlconnector.GraphQLSourceTask.start(GraphQLSourceTask.java:52)
-	at com.example.graphqlconnector.GraphQLSourceTaskTest.testStartWithInvalidConfig(GraphQLSourceTaskTest.java:63)
+	at com.example.graphqlconnector.GraphQLSourceTask.validateConfiguration(GraphQLSourceTask.java:99)
+	at com.example.graphqlconnector.GraphQLSourceTask.start(GraphQLSourceTask.java:84)
+	at com.example.graphqlconnector.GraphQLSourceTaskTest.testStartWithInvalidConfig(GraphQLSourceTaskTest.java:58)
 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
 	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
@@ -175,119 +196,84 @@ java.lang.IllegalArgumentException: GraphQL endpoint URL is required
 	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
 ]]></system-err>
   </testcase>
-  <testcase name="testCorrelationIdGeneration" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.002">
+  <testcase name="testCorrelationIdGeneration" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.001">
     <system-err><![CDATA[[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Starting GraphQL Source Task
 [main] INFO com.example.graphqlconnector.GraphQLSourceConnectorConfig - GraphQLSourceConnectorConfig values: 
-	entity.name = users
+	data.path = *.edges[*].node
 	graphql.endpoint.url = https://api.example.com/graphql
-	graphql.headers = 
+	graphql.headers = [hidden]
+	graphql.query = query GetEntity($first: Int!, $after: String) { users(first: $first, after: $after) { edges { node { id name email } cursor } pageInfo { hasNextPage endCursor } } }
+	graphql.variables = {}
+	kafka.topic.name = users
 	max.retries = 2
-	offset.field = id
+	pagination.cursor.path = *.pageInfo.endCursor
+	pagination.hasmore.path = *.pageInfo.hasNextPage
 	polling.interval.ms = 1000
 	query.timeout.ms = 5000
+	record.key.path = id
 	result.size = 10
 	retry.backoff.ms = 500
-	selected.columns = [id, name, email]
-	topic.prefix = 
 
 [main] INFO com.example.graphqlconnector.GraphQLSourceTask - No existing offset found, starting from beginning
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Registered JMX MBean: com.example.graphqlconnector:type=GraphQLSourceTask,entity=users
 [main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task started successfully for entity: users
 [main] INFO com.example.graphqlconnector.GraphQLSourceTask - Stopping GraphQL Source Task. Total records processed: 0
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task stopped
-]]></system-err>
-  </testcase>
-  <testcase name="testStartWithMissingEntityName" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.001">
-    <system-err><![CDATA[[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Starting GraphQL Source Task
-[main] INFO com.example.graphqlconnector.GraphQLSourceConnectorConfig - GraphQLSourceConnectorConfig values: 
-	entity.name = 
-	graphql.endpoint.url = https://api.example.com/graphql
-	graphql.headers = 
-	max.retries = 3
-	offset.field = id
-	polling.interval.ms = 30000
-	query.timeout.ms = 30000
-	result.size = 100
-	retry.backoff.ms = 1000
-	selected.columns = [id, name]
-	topic.prefix = 
-
-[main] ERROR com.example.graphqlconnector.GraphQLSourceTask - Failed to start GraphQL Source Task
-java.lang.IllegalArgumentException: Entity name is required
-	at com.example.graphqlconnector.GraphQLSourceTask.validateConfiguration(GraphQLSourceTask.java:70)
-	at com.example.graphqlconnector.GraphQLSourceTask.start(GraphQLSourceTask.java:52)
-	at com.example.graphqlconnector.GraphQLSourceTaskTest.testStartWithMissingEntityName(GraphQLSourceTaskTest.java:73)
-	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
-	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
-	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
-	at org.junit.internal.runners.model.ReflectiveCallable.run(ReflectiveCallable.java:12)
-	at org.junit.runners.model.FrameworkMethod.invokeExplosively(FrameworkMethod.java:56)
-	at org.junit.internal.runners.statements.InvokeMethod.evaluate(InvokeMethod.java:17)
-	at org.junit.internal.runners.statements.ExpectException.evaluate(ExpectException.java:19)
-	at org.junit.internal.runners.statements.RunBefores.evaluate(RunBefores.java:26)
-	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
-	at org.junit.runners.BlockJUnit4ClassRunner$1.evaluate(BlockJUnit4ClassRunner.java:100)
-	at org.junit.runners.ParentRunner.runLeaf(ParentRunner.java:366)
-	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:103)
-	at org.junit.runners.BlockJUnit4ClassRunner.runChild(BlockJUnit4ClassRunner.java:63)
-	at org.junit.runners.ParentRunner$4.run(ParentRunner.java:331)
-	at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:79)
-	at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:329)
-	at org.junit.runners.ParentRunner.access$100(ParentRunner.java:66)
-	at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:293)
-	at org.junit.runners.ParentRunner$3.evaluate(ParentRunner.java:306)
-	at org.junit.runners.ParentRunner.run(ParentRunner.java:413)
-	at org.apache.maven.surefire.junit4.JUnit4Provider.execute(JUnit4Provider.java:316)
-	at org.apache.maven.surefire.junit4.JUnit4Provider.executeWithRerun(JUnit4Provider.java:240)
-	at org.apache.maven.surefire.junit4.JUnit4Provider.executeTestSet(JUnit4Provider.java:214)
-	at org.apache.maven.surefire.junit4.JUnit4Provider.invoke(JUnit4Provider.java:155)
-	at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
-	at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
-	at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
-	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
-]]></system-err>
-  </testcase>
-  <testcase name="testQueryGenerationWithCursor" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.0">
-    <system-err><![CDATA[[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Starting GraphQL Source Task
-[main] INFO com.example.graphqlconnector.GraphQLSourceConnectorConfig - GraphQLSourceConnectorConfig values: 
-	entity.name = users
-	graphql.endpoint.url = https://api.example.com/graphql
-	graphql.headers = 
-	max.retries = 2
-	offset.field = id
-	polling.interval.ms = 1000
-	query.timeout.ms = 5000
-	result.size = 10
-	retry.backoff.ms = 500
-	selected.columns = [id, name, email]
-	topic.prefix = 
-
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - No existing offset found, starting from beginning
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task started successfully for entity: users
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Stopping GraphQL Source Task. Total records processed: 0
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task stopped
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Unregistered JMX MBean: com.example.graphqlconnector:type=GraphQLSourceTask,entity=users
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - HTTP client cleanup completed successfully
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task stopped successfully
 ]]></system-err>
   </testcase>
   <testcase name="testVersion" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.0"/>
-  <testcase name="testStartWithMissingSelectedColumns" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.002">
+  <testcase name="testGraphQLQueryConfiguration" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.001">
     <system-err><![CDATA[[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Starting GraphQL Source Task
 [main] INFO com.example.graphqlconnector.GraphQLSourceConnectorConfig - GraphQLSourceConnectorConfig values: 
-	entity.name = users
+	data.path = *.edges[*].node
 	graphql.endpoint.url = https://api.example.com/graphql
-	graphql.headers = 
+	graphql.headers = [hidden]
+	graphql.query = query GetEntity($first: Int!, $after: String) { users(first: $first, after: $after) { edges { node { id name email } cursor } pageInfo { hasNextPage endCursor } } }
+	graphql.variables = {}
+	kafka.topic.name = users
+	max.retries = 2
+	pagination.cursor.path = *.pageInfo.endCursor
+	pagination.hasmore.path = *.pageInfo.hasNextPage
+	polling.interval.ms = 1000
+	query.timeout.ms = 5000
+	record.key.path = id
+	result.size = 10
+	retry.backoff.ms = 500
+
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - No existing offset found, starting from beginning
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Registered JMX MBean: com.example.graphqlconnector:type=GraphQLSourceTask,entity=users
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task started successfully for entity: users
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Stopping GraphQL Source Task. Total records processed: 0
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Unregistered JMX MBean: com.example.graphqlconnector:type=GraphQLSourceTask,entity=users
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - HTTP client cleanup completed successfully
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task stopped successfully
+]]></system-err>
+  </testcase>
+  <testcase name="testStartWithMissingQuery" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.001">
+    <system-err><![CDATA[[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Starting GraphQL Source Task
+[main] INFO com.example.graphqlconnector.GraphQLSourceConnectorConfig - GraphQLSourceConnectorConfig values: 
+	data.path = *.edges[*].node
+	graphql.endpoint.url = https://api.example.com/graphql
+	graphql.headers = [hidden]
+	graphql.query = 
+	graphql.variables = {}
+	kafka.topic.name = users
 	max.retries = 3
-	offset.field = id
+	pagination.cursor.path = *.pageInfo.endCursor
+	pagination.hasmore.path = *.pageInfo.hasNextPage
 	polling.interval.ms = 30000
 	query.timeout.ms = 30000
+	record.key.path = id
 	result.size = 100
 	retry.backoff.ms = 1000
-	selected.columns = []
-	topic.prefix = 
 
 [main] ERROR com.example.graphqlconnector.GraphQLSourceTask - Failed to start GraphQL Source Task
-java.lang.IllegalArgumentException: Selected columns are required
-	at com.example.graphqlconnector.GraphQLSourceTask.validateConfiguration(GraphQLSourceTask.java:74)
-	at com.example.graphqlconnector.GraphQLSourceTask.start(GraphQLSourceTask.java:52)
-	at com.example.graphqlconnector.GraphQLSourceTaskTest.testStartWithMissingSelectedColumns(GraphQLSourceTaskTest.java:83)
+java.lang.IllegalArgumentException: GraphQL query is required
+	at com.example.graphqlconnector.GraphQLSourceTask.validateConfiguration(GraphQLSourceTask.java:107)
+	at com.example.graphqlconnector.GraphQLSourceTask.start(GraphQLSourceTask.java:84)
+	at com.example.graphqlconnector.GraphQLSourceTaskTest.testStartWithMissingQuery(GraphQLSourceTaskTest.java:68)
 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:104)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:565)
 	at org.junit.runners.model.FrameworkMethod$1.runReflectiveCall(FrameworkMethod.java:59)
@@ -318,46 +304,31 @@ java.lang.IllegalArgumentException: Selected columns are required
 	at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
 ]]></system-err>
   </testcase>
-  <testcase name="testQueryGeneration" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.0">
+  <testcase name="testTopicNameGeneration" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.001">
     <system-err><![CDATA[[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Starting GraphQL Source Task
 [main] INFO com.example.graphqlconnector.GraphQLSourceConnectorConfig - GraphQLSourceConnectorConfig values: 
-	entity.name = users
+	data.path = *.edges[*].node
 	graphql.endpoint.url = https://api.example.com/graphql
-	graphql.headers = 
+	graphql.headers = [hidden]
+	graphql.query = query GetEntity($first: Int!, $after: String) { users(first: $first, after: $after) { edges { node { id name email } cursor } pageInfo { hasNextPage endCursor } } }
+	graphql.variables = {}
+	kafka.topic.name = test_users
 	max.retries = 2
-	offset.field = id
+	pagination.cursor.path = *.pageInfo.endCursor
+	pagination.hasmore.path = *.pageInfo.hasNextPage
 	polling.interval.ms = 1000
 	query.timeout.ms = 5000
+	record.key.path = id
 	result.size = 10
 	retry.backoff.ms = 500
-	selected.columns = [id, name, email]
-	topic.prefix = 
 
 [main] INFO com.example.graphqlconnector.GraphQLSourceTask - No existing offset found, starting from beginning
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Registered JMX MBean: com.example.graphqlconnector:type=GraphQLSourceTask,entity=users
 [main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task started successfully for entity: users
 [main] INFO com.example.graphqlconnector.GraphQLSourceTask - Stopping GraphQL Source Task. Total records processed: 0
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task stopped
-]]></system-err>
-  </testcase>
-  <testcase name="testTopicNameGeneration" classname="com.example.graphqlconnector.GraphQLSourceTaskTest" time="0.0">
-    <system-err><![CDATA[[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Starting GraphQL Source Task
-[main] INFO com.example.graphqlconnector.GraphQLSourceConnectorConfig - GraphQLSourceConnectorConfig values: 
-	entity.name = users
-	graphql.endpoint.url = https://api.example.com/graphql
-	graphql.headers = 
-	max.retries = 2
-	offset.field = id
-	polling.interval.ms = 1000
-	query.timeout.ms = 5000
-	result.size = 10
-	retry.backoff.ms = 500
-	selected.columns = [id, name, email]
-	topic.prefix = test_
-
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - No existing offset found, starting from beginning
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task started successfully for entity: users
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Stopping GraphQL Source Task. Total records processed: 0
-[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task stopped
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - Unregistered JMX MBean: com.example.graphqlconnector:type=GraphQLSourceTask,entity=users
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - HTTP client cleanup completed successfully
+[main] INFO com.example.graphqlconnector.GraphQLSourceTask - GraphQL Source Task stopped successfully
 ]]></system-err>
   </testcase>
 </testsuite>

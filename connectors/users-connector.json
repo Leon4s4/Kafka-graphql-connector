@@ -1,18 +1,25 @@
 {
-  "name": "graphql-users-source",
+  "name": "graphql-users-connector",
   "config": {
     "connector.class": "com.example.graphqlconnector.GraphQLSourceConnector",
     "tasks.max": "1",
+    
     "graphql.endpoint.url": "http://mock-graphql-api:4000/graphql",
-    "entity.name": "users",
+    "graphql.query": "query GetUsers($first: Int!, $after: String) { users(first: $first, after: $after) { edges { node { id name email createdAt status } cursor } pageInfo { hasNextPage endCursor } } }",
+    "graphql.variables": "{}",
+    
+    "data.path": "users.edges[*].node",
+    "pagination.cursor.path": "users.pageInfo.endCursor", 
+    "pagination.hasmore.path": "users.pageInfo.hasNextPage",
+    "record.key.path": "id",
+    
     "result.size": "10",
-    "selected.columns": "id,name,email,createdAt,status",
     "polling.interval.ms": "10000",
-    "topic.prefix": "graphql_",
-    "offset.field": "id",
+    "kafka.topic.name": "graphql_users",
     "query.timeout.ms": "30000",
     "max.retries": "3",
     "retry.backoff.ms": "1000",
+    
     "key.converter": "org.apache.kafka.connect.storage.StringConverter",
     "value.converter": "org.apache.kafka.connect.json.JsonConverter",
     "value.converter.schemas.enable": "true"

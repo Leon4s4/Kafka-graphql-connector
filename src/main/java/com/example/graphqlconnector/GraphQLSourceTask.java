@@ -16,6 +16,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 import java.lang.management.ManagementFactory;
+import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.DocumentContext;
+import com.jayway.jsonpath.PathNotFoundException;
 import okhttp3.ConnectionPool;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -100,8 +103,18 @@ public class GraphQLSourceTask extends SourceTask implements GraphQLSourceTaskMB
             throw new IllegalArgumentException("Entity name is required");
         }
         
-        if (config.selectedColumns() == null || config.selectedColumns().isEmpty()) {
-            throw new IllegalArgumentException("Selected columns are required");
+        if (config.graphqlQuery() == null || config.graphqlQuery().trim().isEmpty()) {
+            throw new IllegalArgumentException("GraphQL query is required");
+        }
+        
+        if (config.dataPath() == null || config.dataPath().trim().isEmpty()) {
+            throw new IllegalArgumentException("Data path is required");
+        }
+        
+        // Validate that query contains pagination variables
+        String query = config.graphqlQuery();
+        if (!query.contains("$first") || !query.contains("$after")) {
+            log.warn("GraphQL query should contain $first and $after variables for pagination");
         }
         
         log.debug("Configuration validation passed");
@@ -316,8 +329,8 @@ public class GraphQLSourceTask extends SourceTask implements GraphQLSourceTaskMB
     }
 
     private GraphQLQueryResult executeQuery(String after, String correlationId) throws IOException {
-        String query = buildQuery(after);
-        Map<String, Object> variables = new HashMap<>();
+        String query = config.graphqlQuery();
+        Map<String, Object> variables = new HashMap<>(config.graphqlVariables());
         variables.put("first", config.resultSize());
         if (after != null) {
             variables.put("after", after);
@@ -362,25 +375,43 @@ public class GraphQLSourceTask extends SourceTask implements GraphQLSourceTaskMB
     }
 
     private GraphQLQueryResult parseGraphQLResponse(JsonNode responseNode) {
-        JsonNode dataNode = responseNode.path("data");
-        JsonNode entityNode = dataNode.path(config.entityName());
-        JsonNode edges = entityNode.path("edges");
-        
-        List<JsonNode> nodes = new ArrayList<>();
-        String endCursor = null;
-        
-        for (JsonNode edge : edges) {
-            nodes.add(edge.path("node"));
-            endCursor = edge.path("cursor").asText();
+        try {
+            DocumentContext document = JsonPath.parse(responseNode.toString());
+            
+            // Extract data records using configured path
+            List<Object> dataObjects = document.read(config.dataPath());
+            List<JsonNode> nodes = new ArrayList<>();
+            
+            for (Object dataObj : dataObjects) {
+                JsonNode node = mapper.convertValue(dataObj, JsonNode.class);
+                nodes.add(node);
+            }
+            
+            // Extract pagination cursor
+            String endCursor = null;
+            try {
+                endCursor = document.read(config.paginationCursorPath());
+            } catch (PathNotFoundException e) {
+                log.debug("No cursor found at path: {}", config.paginationCursorPath());
+            }
+            
+            // Extract hasMore flag
+            boolean hasNext = false;
+            try {
+                hasNext = document.read(config.paginationHasMorePath());
+            } catch (PathNotFoundException e) {
+                log.debug("No hasMore flag found at path: {}", config.paginationHasMorePath());
+                // If no hasMore flag, assume no more pages if no records or cursor
+                hasNext = !nodes.isEmpty() && endCursor != null;
+            }
+            
+            log.debug("Parsed {} records, cursor: {}, hasNext: {}", nodes.size(), endCursor, hasNext);
+            return new GraphQLQueryResult(nodes, endCursor, hasNext);
+            
+        } catch (Exception e) {
+            log.error("Failed to parse GraphQL response with JSONPath", e);
+            throw new RuntimeException("Response parsing failed", e);
         }
-        
-        JsonNode pageInfo = entityNode.path("pageInfo");
-        boolean hasNext = pageInfo.path("hasNextPage").asBoolean(false);
-        if (!pageInfo.path("endCursor").isMissingNode()) {
-            endCursor = pageInfo.path("endCursor").asText();
-        }
-        
-        return new GraphQLQueryResult(nodes, endCursor, hasNext);
     }
 
     private SourceRecord createSourceRecord(JsonNode node, String endCursor, String correlationId) {
@@ -390,9 +421,13 @@ public class GraphQLSourceTask extends SourceTask implements GraphQLSourceTaskMB
         sourceOffset.put("timestamp", Instant.now().toString());
         
         String recordKey = null;
-        if (node.has(config.offsetField())) {
-            recordKey = node.get(config.offsetField()).asText();
+        try {
+            // Use JSONPath to extract record key
+            DocumentContext nodeContext = JsonPath.parse(node.toString());
+            recordKey = nodeContext.read(config.recordKeyPath());
             sourceOffset.put("last_id", recordKey);
+        } catch (PathNotFoundException e) {
+            log.debug("No record key found at path: {}", config.recordKeyPath());
         }
         
         // Add additional metadata for offset verification
@@ -431,18 +466,26 @@ public class GraphQLSourceTask extends SourceTask implements GraphQLSourceTaskMB
         
         Map<String, Object> fieldValues = new HashMap<>();
         
-        for (String fieldName : config.selectedColumns()) {
+        // Dynamically process all fields in the JSON node
+        node.fields().forEachRemaining(entry -> {
+            String fieldName = entry.getKey();
+            JsonNode fieldNode = entry.getValue();
+            
+            // Add field to schema
             schemaBuilder.field(fieldName, Schema.OPTIONAL_STRING_SCHEMA);
             
+            // Convert field value
             String fieldValue = null;
-            if (node.has(fieldName)) {
-                JsonNode fieldNode = node.get(fieldName);
-                if (!fieldNode.isNull()) {
+            if (!fieldNode.isNull()) {
+                if (fieldNode.isValueNode()) {
                     fieldValue = fieldNode.asText();
+                } else {
+                    // For complex objects, serialize as JSON string
+                    fieldValue = fieldNode.toString();
                 }
             }
             fieldValues.put(fieldName, fieldValue);
-        }
+        });
         
         Schema schema = schemaBuilder.build();
         Struct struct = new Struct(schema);
@@ -455,45 +498,13 @@ public class GraphQLSourceTask extends SourceTask implements GraphQLSourceTaskMB
     }
 
     private String buildTopicName() {
-        String prefix = config.topicPrefix();
-        if (prefix != null && !prefix.trim().isEmpty()) {
-            return prefix + config.entityName();
+        String topicName = config.kafkaTopicName();
+        if (topicName == null || topicName.trim().isEmpty()) {
+            throw new IllegalArgumentException("kafka.topic.name is required and cannot be empty");
         }
-        return config.entityName();
+        return topicName.trim();
     }
 
-    private String buildQuery(String after) {
-        StringBuilder queryBuilder = new StringBuilder();
-        queryBuilder.append("query GetEntity(");
-        queryBuilder.append(buildParameterDeclaration(after));
-        queryBuilder.append(") {");
-        queryBuilder.append(config.entityName());
-        queryBuilder.append("(first: $first");
-        
-        if (after != null) {
-            queryBuilder.append(", after: $after");
-        }
-        
-        queryBuilder.append(") {");
-        queryBuilder.append("edges { node {");
-        
-        for (String field : config.selectedColumns()) {
-            queryBuilder.append(field).append(" ");
-        }
-        
-        queryBuilder.append("} cursor }");
-        queryBuilder.append("pageInfo { hasNextPage endCursor }");
-        queryBuilder.append("} }");
-        
-        return queryBuilder.toString();
-    }
-
-    private String buildParameterDeclaration(String after) {
-        if (after != null) {
-            return "$first: Int!, $after: String";
-        }
-        return "$first: Int!";
-    }
 
     private boolean shouldStayInCircuitBreaker() {
         if (lastFailureTime == null) {
@@ -817,7 +828,7 @@ public class GraphQLSourceTask extends SourceTask implements GraphQLSourceTaskMB
 
     @Override
     public String getSelectedColumns() {
-        return config != null ? String.join(",", config.selectedColumns()) : "Unknown";
+        return config != null ? config.dataPath() : "Unknown";
     }
 
     @Override

@@ -54,8 +54,8 @@ public class GraphQLSourceConnectorTest {
     private Map<String, String> createValidProps() {
         Map<String, String> props = new HashMap<>();
         props.put(GraphQLSourceConnectorConfig.GRAPHQL_ENDPOINT, "https://api.example.com/graphql");
-        props.put(GraphQLSourceConnectorConfig.ENTITY_NAME, "users");
-        props.put(GraphQLSourceConnectorConfig.SELECTED_COLUMNS, "id,name,email");
+        props.put(GraphQLSourceConnectorConfig.GRAPHQL_QUERY, "query GetEntity($first: Int!, $after: String) { users(first: $first, after: $after) { edges { node { id name email } cursor } pageInfo { hasNextPage endCursor } } }");
+        props.put(GraphQLSourceConnectorConfig.KAFKA_TOPIC_NAME, "users");
         return props;
     }
 }
