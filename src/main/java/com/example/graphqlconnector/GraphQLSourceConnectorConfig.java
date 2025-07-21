@@ -27,7 +27,7 @@ public class GraphQLSourceConnectorConfig extends AbstractConfig {
             .define(ENTITY_NAME, Type.STRING, Importance.HIGH, "GraphQL entity name")
             .define(RESULT_SIZE, Type.INT, 100, Importance.HIGH, "Result size per query")
             .define(SELECTED_COLUMNS, Type.LIST, Importance.HIGH, "Selected columns")
-            .define(GRAPHQL_HEADERS, Type.STRING, "", Importance.MEDIUM, "GraphQL headers")
+            .define(GRAPHQL_HEADERS, Type.PASSWORD, "", Importance.MEDIUM, "GraphQL headers (sensitive)")
             .define(POLLING_INTERVAL_MS, Type.LONG, 30000L, Importance.MEDIUM, "Polling interval ms")
             .define(TOPIC_PREFIX, Type.STRING, "", Importance.MEDIUM, "Topic prefix")
             .define(OFFSET_FIELD, Type.STRING, "id", Importance.MEDIUM, "Offset field")
@@ -61,9 +61,14 @@ public class GraphQLSourceConnectorConfig extends AbstractConfig {
         if (headerString != null && !headerString.trim().isEmpty()) {
             String[] pairs = headerString.split(",");
             for (String pair : pairs) {
-                String[] kv = pair.split(":");
+                String[] kv = pair.split(":", 2); // Limit to 2 parts max
                 if (kv.length == 2) {
-                    headers.put(kv[0].trim(), kv[1].trim());
+                    String key = kv[0].trim();
+                    String value = kv[1].trim();
+                    
+                    if (!key.isEmpty()) { // Basic validation
+                        headers.put(key, value);
+                    }
                 }
             }
         }
