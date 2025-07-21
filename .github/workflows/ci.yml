@@ -31,7 +31,7 @@ jobs:
       run: mvn clean test -B
       
     - name: Generate test report
-      uses: dorny/test-reporter@v1
+      uses: dorny/test-reporter@v2
       if: success() || failure()
       with:
         name: Unit Test Results
@@ -125,7 +125,7 @@ jobs:
         mvn failsafe:integration-test failsafe:verify -B
         
     - name: Generate integration test report
-      uses: dorny/test-reporter@v1
+      uses: dorny/test-reporter@v2
       if: success() || failure()
       with:
         name: Integration Test Results
