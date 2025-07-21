@@ -31,6 +31,9 @@ public class GraphQLSourceTask extends SourceTask {
     private static final Logger log = LoggerFactory.getLogger(GraphQLSourceTask.class);
     private static final String CORRELATION_ID_HEADER = "X-Correlation-ID";
     private static final int MAX_ITERATIONS = 1000;
+    private static final int MAX_CONSECUTIVE_FAILURES = 10;
+    private static final long ERROR_BACKOFF_MS = 5000; // 5 seconds
+    private static final long CIRCUIT_BREAKER_TIMEOUT_MS = 300000; // 5 minutes
 
     private GraphQLSourceConnectorConfig config;
     private OkHttpClient client;
@@ -40,6 +43,9 @@ public class GraphQLSourceTask extends SourceTask {
     private long recordsProcessed = 0;
     private Instant lastQueryTime;
     private Map<String, Object> sourcePartition;
+    private int consecutiveFailures = 0;
+    private Instant lastFailureTime;
+    private boolean isHealthy = true;
 
     @Override
     public String version() {
@@ -114,55 +120,107 @@ public class GraphQLSourceTask extends SourceTask {
         String correlationId = generateCorrelationId();
         log.debug("Starting poll cycle with correlation ID: {}", correlationId);
         
+        // Circuit breaker check
+        if (!isHealthy && shouldStayInCircuitBreaker()) {
+            log.warn("Circuit breaker open, skipping poll cycle. Consecutive failures: {}", consecutiveFailures);
+            Thread.sleep(ERROR_BACKOFF_MS);
+            return Collections.emptyList();
+        }
+        
         try {
-            List<SourceRecord> records = new ArrayList<>();
-            boolean hasNext = true;
-            String after = nextCursor;
-            int iterationCount = 0;
+            List<SourceRecord> records = pollRecords(correlationId);
             
-            while (hasNext && iterationCount < MAX_ITERATIONS) {
-                iterationCount++;
-                log.debug("Poll iteration {} with cursor: {}", iterationCount, after);
-                
-                GraphQLQueryResult result = executeQueryWithRetry(after, correlationId);
-                
-                // Process nodes in this batch
-                for (JsonNode node : result.nodes) {
-                    SourceRecord record = createSourceRecord(node, result.endCursor, correlationId);
-                    records.add(record);
-                    recordsProcessed++;
-                }
-                
-                hasNext = result.hasNextPage;
-                after = result.endCursor;
-                
-                log.debug("Processed {} nodes in iteration {}", result.nodes.size(), iterationCount);
-            }
-            
-            if (iterationCount >= MAX_ITERATIONS) {
-                log.warn("Reached maximum iterations ({}), stopping poll cycle", MAX_ITERATIONS);
-            }
-            
-            // Only update nextCursor if we successfully created records
-            // Offset will be committed by Kafka Connect framework when records are successfully produced
-            if (!records.isEmpty()) {
-                nextCursor = after;
-                log.info("Poll cycle completed. Records: {}, Total processed: {}, Next cursor: {}", 
-                        records.size(), recordsProcessed, nextCursor);
-            } else {
-                log.info("Poll cycle completed with no records. Cursor unchanged: {}", nextCursor);
+            // Reset failure tracking on success
+            if (!records.isEmpty() || consecutiveFailures > 0) {
+                resetFailureTracking();
             }
             
             return records;
             
+        } catch (InterruptedException e) {
+            log.info("Poll interrupted, shutting down gracefully");
+            Thread.currentThread().interrupt();
+            throw e;
         } catch (Exception e) {
-            // On failure, reset cursor to last committed position to avoid data loss
-            log.error("Error during poll cycle with correlation ID: {}, resetting cursor to last committed: {}", 
-                    correlationId, lastCommittedCursor, e);
-            nextCursor = lastCommittedCursor;
-            throw new RuntimeException("Poll failed", e);
+            return handlePollFailure(e, correlationId);
         } finally {
             Thread.sleep(config.pollingIntervalMs());
+        }
+    }
+    
+    private List<SourceRecord> pollRecords(String correlationId) throws Exception {
+        List<SourceRecord> records = new ArrayList<>();
+        boolean hasNext = true;
+        String after = nextCursor;
+        int iterationCount = 0;
+        
+        while (hasNext && iterationCount < MAX_ITERATIONS) {
+            iterationCount++;
+            log.debug("Poll iteration {} with cursor: {}", iterationCount, after);
+            
+            GraphQLQueryResult result = executeQueryWithRetry(after, correlationId);
+            
+            // Process nodes in this batch
+            for (JsonNode node : result.nodes) {
+                SourceRecord record = createSourceRecord(node, result.endCursor, correlationId);
+                records.add(record);
+                recordsProcessed++;
+            }
+            
+            hasNext = result.hasNextPage;
+            after = result.endCursor;
+            
+            log.debug("Processed {} nodes in iteration {}", result.nodes.size(), iterationCount);
+        }
+        
+        if (iterationCount >= MAX_ITERATIONS) {
+            log.warn("Reached maximum iterations ({}), stopping poll cycle", MAX_ITERATIONS);
+        }
+        
+        // Only update nextCursor if we successfully created records
+        if (!records.isEmpty()) {
+            nextCursor = after;
+            log.info("Poll cycle completed. Records: {}, Total processed: {}, Next cursor: {}", 
+                    records.size(), recordsProcessed, nextCursor);
+        } else {
+            log.info("Poll cycle completed with no records. Cursor unchanged: {}", nextCursor);
+        }
+        
+        return records;
+    }
+    
+    private List<SourceRecord> handlePollFailure(Exception e, String correlationId) throws InterruptedException {
+        incrementFailureCount();
+        
+        // Log appropriate level based on failure type and count
+        if (isRetriableError(e)) {
+            log.warn("Retriable error during poll cycle (attempt {}/{}): {}", 
+                    consecutiveFailures, MAX_CONSECUTIVE_FAILURES, e.getMessage());
+        } else {
+            log.error("Non-retriable error during poll cycle: {}", e.getMessage(), e);
+        }
+        
+        // Reset cursor to last committed position to avoid data loss
+        nextCursor = lastCommittedCursor;
+        log.debug("Reset cursor to last committed position: {}", lastCommittedCursor);
+        
+        // Check if we should open circuit breaker
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+            openCircuitBreaker();
+        }
+        
+        // For retriable errors, return empty list and continue
+        // For non-retriable errors, still return empty list but log as error
+        if (isRetriableError(e)) {
+            // Apply exponential backoff for retriable errors
+            long backoffMs = Math.min(ERROR_BACKOFF_MS * consecutiveFailures, 60000);
+            log.debug("Applying backoff of {}ms before next poll", backoffMs);
+            Thread.sleep(backoffMs);
+            return Collections.emptyList();
+        } else {
+            // For non-retriable errors, we still return empty list but mark as unhealthy
+            isHealthy = false;
+            return Collections.emptyList();
         }
     }
 
@@ -385,6 +443,64 @@ public class GraphQLSourceTask extends SourceTask {
         return "$first: Int!";
     }
 
+    private boolean shouldStayInCircuitBreaker() {
+        if (lastFailureTime == null) {
+            return false;
+        }
+        return Instant.now().isBefore(lastFailureTime.plusMillis(CIRCUIT_BREAKER_TIMEOUT_MS));
+    }
+    
+    private void resetFailureTracking() {
+        if (consecutiveFailures > 0) {
+            log.info("Resetting failure tracking after successful poll. Previous failures: {}", consecutiveFailures);
+            consecutiveFailures = 0;
+            lastFailureTime = null;
+            isHealthy = true;
+        }
+    }
+    
+    private void incrementFailureCount() {
+        consecutiveFailures++;
+        lastFailureTime = Instant.now();
+        log.debug("Incremented failure count to: {}", consecutiveFailures);
+    }
+    
+    private void openCircuitBreaker() {
+        isHealthy = false;
+        log.error("Circuit breaker opened after {} consecutive failures. Will retry after {}ms", 
+                consecutiveFailures, CIRCUIT_BREAKER_TIMEOUT_MS);
+    }
+    
+    private boolean isRetriableError(Exception e) {
+        // Network/IO errors are typically retriable
+        if (e instanceof IOException || 
+            e.getCause() instanceof IOException) {
+            return true;
+        }
+        
+        // Timeout errors are retriable
+        if (e instanceof java.net.SocketTimeoutException ||
+            e.getCause() instanceof java.net.SocketTimeoutException) {
+            return true;
+        }
+        
+        // Some HTTP errors are retriable (5xx server errors)
+        String message = e.getMessage();
+        if (message != null) {
+            // HTTP 5xx errors are typically retriable
+            if (message.contains("HTTP 50") || message.contains("HTTP 52") || message.contains("HTTP 53")) {
+                return true;
+            }
+            // Rate limiting is retriable
+            if (message.contains("HTTP 429") || message.toLowerCase().contains("rate limit")) {
+                return true;
+            }
+        }
+        
+        // Everything else is non-retriable (4xx client errors, configuration issues, etc.)
+        return false;
+    }
+    
     private String generateCorrelationId() {
         return config.entityName() + "-" + System.currentTimeMillis() + "-" + 
                Thread.currentThread().getId();
