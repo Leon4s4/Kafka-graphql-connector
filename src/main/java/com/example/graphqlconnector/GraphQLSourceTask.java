@@ -36,8 +36,10 @@ public class GraphQLSourceTask extends SourceTask {
     private OkHttpClient client;
     private ObjectMapper mapper = new ObjectMapper();
     private String nextCursor;
+    private String lastCommittedCursor;
     private long recordsProcessed = 0;
     private Instant lastQueryTime;
+    private Map<String, Object> sourcePartition;
 
     @Override
     public String version() {
@@ -92,14 +94,17 @@ public class GraphQLSourceTask extends SourceTask {
     }
 
     private void loadOffset() {
-        Map<String, Object> partition = Collections.singletonMap("entity", config.entityName());
-        Map<String, Object> offset = context.offsetStorageReader().offset(partition);
+        this.sourcePartition = Collections.singletonMap("entity", config.entityName());
+        Map<String, Object> offset = context.offsetStorageReader().offset(sourcePartition);
         
         if (offset != null) {
             this.nextCursor = (String) offset.get("last_cursor");
-            log.info("Loaded offset - cursor: {}, last_id: {}", 
-                    nextCursor, offset.get("last_id"));
+            this.lastCommittedCursor = this.nextCursor;
+            log.info("Loaded offset - cursor: {}, last_id: {}, timestamp: {}", 
+                    nextCursor, offset.get("last_id"), offset.get("timestamp"));
         } else {
+            this.nextCursor = null;
+            this.lastCommittedCursor = null;
             log.info("No existing offset found, starting from beginning");
         }
     }
@@ -121,6 +126,7 @@ public class GraphQLSourceTask extends SourceTask {
                 
                 GraphQLQueryResult result = executeQueryWithRetry(after, correlationId);
                 
+                // Process nodes in this batch
                 for (JsonNode node : result.nodes) {
                     SourceRecord record = createSourceRecord(node, result.endCursor, correlationId);
                     records.add(record);
@@ -129,7 +135,6 @@ public class GraphQLSourceTask extends SourceTask {
                 
                 hasNext = result.hasNextPage;
                 after = result.endCursor;
-                nextCursor = after;
                 
                 log.debug("Processed {} nodes in iteration {}", result.nodes.size(), iterationCount);
             }
@@ -138,13 +143,23 @@ public class GraphQLSourceTask extends SourceTask {
                 log.warn("Reached maximum iterations ({}), stopping poll cycle", MAX_ITERATIONS);
             }
             
-            log.info("Poll cycle completed. Records: {}, Total processed: {}", 
-                    records.size(), recordsProcessed);
+            // Only update nextCursor if we successfully created records
+            // Offset will be committed by Kafka Connect framework when records are successfully produced
+            if (!records.isEmpty()) {
+                nextCursor = after;
+                log.info("Poll cycle completed. Records: {}, Total processed: {}, Next cursor: {}", 
+                        records.size(), recordsProcessed, nextCursor);
+            } else {
+                log.info("Poll cycle completed with no records. Cursor unchanged: {}", nextCursor);
+            }
             
             return records;
             
         } catch (Exception e) {
-            log.error("Error during poll cycle with correlation ID: {}", correlationId, e);
+            // On failure, reset cursor to last committed position to avoid data loss
+            log.error("Error during poll cycle with correlation ID: {}, resetting cursor to last committed: {}", 
+                    correlationId, lastCommittedCursor, e);
+            nextCursor = lastCommittedCursor;
             throw new RuntimeException("Poll failed", e);
         } finally {
             Thread.sleep(config.pollingIntervalMs());
@@ -259,7 +274,7 @@ public class GraphQLSourceTask extends SourceTask {
     }
 
     private SourceRecord createSourceRecord(JsonNode node, String endCursor, String correlationId) {
-        Map<String, Object> sourcePartition = Collections.singletonMap("entity", config.entityName());
+        // Create offset information that will be committed atomically with the record
         Map<String, Object> sourceOffset = new HashMap<>();
         sourceOffset.put("last_cursor", endCursor);
         sourceOffset.put("timestamp", Instant.now().toString());
@@ -270,6 +285,10 @@ public class GraphQLSourceTask extends SourceTask {
             sourceOffset.put("last_id", recordKey);
         }
         
+        // Add additional metadata for offset verification
+        sourceOffset.put("entity", config.entityName());
+        sourceOffset.put("correlation_id", correlationId);
+        
         String topic = buildTopicName();
         Struct value = buildStruct(node);
         Schema valueSchema = value.schema();
@@ -278,6 +297,9 @@ public class GraphQLSourceTask extends SourceTask {
         headers.addString("entity", config.entityName());
         headers.addString("timestamp", Instant.now().toString());
         headers.addString("correlation_id", correlationId);
+        if (recordKey != null) {
+            headers.addString("record_id", recordKey);
+        }
         
         return new SourceRecord(
                 sourcePartition,
@@ -366,6 +388,29 @@ public class GraphQLSourceTask extends SourceTask {
     private String generateCorrelationId() {
         return config.entityName() + "-" + System.currentTimeMillis() + "-" + 
                Thread.currentThread().getId();
+    }
+
+    @Override
+    public void commit() throws InterruptedException {
+        // This method is called by Kafka Connect when offsets have been successfully committed
+        // Update our tracking cursor to the current position
+        if (nextCursor != null) {
+            lastCommittedCursor = nextCursor;
+            log.debug("Offset committed successfully. Last committed cursor: {}", lastCommittedCursor);
+        }
+    }
+
+    @Override
+    public void commitRecord(SourceRecord record) throws InterruptedException {
+        // This method is called for each successfully committed record
+        // Update our committed cursor based on the record's offset
+        if (record != null && record.sourceOffset() != null) {
+            String recordCursor = (String) record.sourceOffset().get("last_cursor");
+            if (recordCursor != null) {
+                lastCommittedCursor = recordCursor;
+                log.trace("Record committed with cursor: {}", recordCursor);
+            }
+        }
     }
 
     @Override
